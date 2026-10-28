@@ -525,8 +525,72 @@ function viewPapers() {
       </button>`)).join("");
 }
 
+const SITE_URL = "https://erkiterki.github.io/poland-democracy/";
+const AGENT_PROMPT = `Please set me up with my team's shared project hub. Read ${SITE_URL}AGENT_SETUP.md and follow every step in it.`;
+
+function viewGuide() {
+  const step = (n, title, body) => `<li class="g-step"><span class="g-num">${n}</span><div><h3>${title}</h3>${body}</div></li>`;
+  return `
+    ${pageHead("How it works", "Using the hub", "Our team's shared to-do list, calendar, data catalog and reading list. Everyone sees the same thing, and anyone on the team can change it.")}
+
+    <div class="g-paths">
+      <a class="card g-path" href="#g-site"><span class="g-ico">💻</span><b>Edit on the website</b><span>Click, type, save. Set it up once in about 2 minutes.</span></a>
+      <a class="card g-path" href="#g-agent"><span class="g-ico">🤖</span><b>Let your AI agent do it</b><span>Tell Claude what you want in plain words and it updates the hub.</span></a>
+    </div>
+    <p class="g-note">You can use both. Whatever you change shows up for <strong>everyone</strong> about a minute later.</p>
+
+    <h2 class="section-title g-h" id="g-site">Edit on the website</h2>
+    <div class="card g-card">
+      <div class="g-sub">First time only (about 2 minutes)</div>
+      <ol class="g-steps">
+        ${step(1, "Have a GitHub account", `<p>No account? <a href="https://github.com/signup" target="_blank" rel="noopener">Sign up here</a> (free). Then send your GitHub username to Erik.</p>`)}
+        ${step(2, "Accept Erik's invite", `<p>You'll get an email from GitHub. Click <em>Accept invitation</em>, or <a href="https://github.com/ErkiTerki/poland-democracy/invitations" target="_blank" rel="noopener">open the invite here</a>.</p>`)}
+        ${step(3, "Create a token (a password just for this site)", `<p><a href="${TOKEN_URL}" target="_blank" rel="noopener">Click here</a>. GitHub opens with everything already filled in.</p>
+          <ul><li>Choose an <b>Expiration</b> (90 days is fine).</li><li>Scroll down and click the green <b>Generate token</b> button.</li><li><b>Copy</b> the code that starts with <code>ghp_</code>. GitHub only shows it once.</li></ul>`)}
+        ${step(4, "Connect", `<p>Click <button class="btn inline-btn" id="auth-btn-guide" data-connect><span class="auth-dot"></span> Connect to edit</button> (also at the top right of every page). Paste the code, type your name, and click <b>Connect</b>. Done.</p>`)}
+      </ol>
+    </div>
+
+    <div class="card g-card">
+      <div class="g-sub">Everyday use</div>
+      <div class="g-how">
+        <div><h3>📅 Add an event</h3><p>Overview → <b>click a day</b> in the calendar → fill in the form → <b>Add event</b>.</p></div>
+        <div><h3>✅ Add a task</h3><p>Tasks → <b>+ Add task</b>. Put your name as owner and pick a due date.</p></div>
+        <div><h3>➡️ Move a task</h3><p>Click the task → <b>Move to Doing</b> or <b>✓ Mark done</b>.</p></div>
+        <div><h3>✏️ Change or delete</h3><p>Click anything → <b>Edit</b>. To delete, use <b>Delete</b> in the edit form (click it twice).</p></div>
+        <div><h3>📊 Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Always write which <b>version</b> you used.</p></div>
+        <div><h3>📚 Add a paper</h3><p>Literature → <b>+ Add paper</b>. Only mark it <b>Summarised</b> once someone has actually read it.</p></div>
+      </div>
+    </div>
+
+    <h2 class="section-title g-h" id="g-agent">Let your AI agent do it</h2>
+    <div class="card g-card">
+      <p class="g-lead">If you use Claude Code (or another coding agent), it can set itself up and then do all the editing for you.</p>
+      <ol class="g-steps">
+        ${step(1, "Copy this message", `<div class="g-prompt"><code id="agent-prompt">${esc(AGENT_PROMPT)}</code><button class="btn primary" data-copy="agent-prompt">Copy</button></div>`)}
+        ${step(2, "Paste it into your agent", `<p>It checks your tools, logs you in to GitHub, accepts the invite, downloads the project and learns the team rules. It asks before installing anything.</p>`)}
+        ${step(3, "Just ask for things", `<ul class="g-examples">
+          <li>"Add a task for me: pull turnout data from IDEA, due next Friday."</li>
+          <li>"Put a team meeting in the calendar on Thursday at 14:00 in the library."</li>
+          <li>"I read this paper: add it to the literature list with a summary."</li>
+          <li>"Mark my V-Dem task as done."</li></ul>`)}
+      </ol>
+      <p class="g-alt">Prefer a file? <a href="AGENT_SETUP.md" download>Download AGENT_SETUP.md</a> and hand it to your agent.</p>
+    </div>
+
+    <h2 class="section-title g-h">If something goes wrong</h2>
+    <div class="card g-card g-faq">
+      <details><summary>I saved something but my teammate can't see it</summary><p>The site needs about a minute to update for everyone. Ask them to refresh the page.</p></details>
+      <details><summary>"Your token was rejected"</summary><p>It has probably expired. Make a new one (step 3 above) and connect again.</p></details>
+      <details><summary>"Can't write to the repo"</summary><p>You haven't accepted Erik's invite yet (step 2), or the token is missing the <code>public_repo</code> tick. Use the link in step 3, which ticks it for you.</p></details>
+      <details><summary>"Someone changed this at the same time"</summary><p>Two people edited the same thing at once. Refresh the page and make your change again. Nothing was lost.</p></details>
+      <details><summary>I'm on a shared or library computer</summary><p>Click your name at the top right → <b>Disconnect this browser</b> when you're done. The token is saved in the browser you connected from.</p></details>
+      <details><summary>What's actually happening behind the scenes?</summary><p>Everything lives as small text files in our <a href="https://github.com/ErkiTerki/poland-democracy" target="_blank" rel="noopener">GitHub repo</a>. Saving on the site creates a commit under your name, so we can always see who changed what and undo mistakes. The website rebuilds itself after every change.</p></details>
+    </div>`;
+}
+
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, datasets: viewDatasets, papers: viewPapers };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, datasets: viewDatasets, papers: viewPapers, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];
@@ -536,10 +600,19 @@ function render() {
 }
 
 document.addEventListener("click", (e) => {
-  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-dataset],[data-paper],[data-owner],[data-cal],[data-status],[data-action],#auth-btn");
+  const jump = e.target.closest('a[href^="#g-"]');
+  if (jump) { e.preventDefault(); document.querySelector(jump.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); return; }
+  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-dataset],[data-paper],[data-owner],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
-  if (el.id === "auth-btn") return connectModal();
+  if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
+  if (d.copy) {
+    const text = document.getElementById(d.copy).textContent;
+    const done = () => { el.textContent = "Copied ✓"; setTimeout(() => (el.textContent = "Copy"), 2000); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => toast("Couldn't copy. Select the text and copy it by hand.", "err"));
+    else toast("Couldn't copy. Select the text and copy it by hand.", "err");
+    return;
+  }
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.ev) return openEvent(d.ev, d.on);
   if (d.add) return requireAuth(() => openForm(d.add, null, d.date ? { date: d.date } : {}));

@@ -12,6 +12,8 @@ and Radical Voting in Europe**, focused on Poland's democratic U-turn.
 - **With your agent (Claude Code etc.):** clone the repo and ask it to add a task, summarise a paper,
   log a dataset or add a calendar event. It follows the rules in [`CLAUDE.md`](CLAUDE.md).
 
+New teammate with an AI agent? Paste this into it: *"Read https://erkiterki.github.io/poland-democracy/AGENT_SETUP.md and follow every step in it."*
+
 ## Run locally
 ```sh
 python3 build.py
