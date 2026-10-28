@@ -7,7 +7,7 @@ and Radical Voting in Europe**, focused on Poland's democratic U-turn.
 
 ## Editing
 - **With your agent (Claude Code etc.):** clone the repo and ask it to add a task, summarise a paper,
-  log a dataset or add a chart. It follows the rules in [`CLAUDE.md`](CLAUDE.md).
+  log a dataset or add a calendar event. It follows the rules in [`CLAUDE.md`](CLAUDE.md).
 - **In the browser:** every item on the site has an *Edit* link, and every section has a *+ Add* button (on the calendar, hover a day and click *+*).
   Both open GitHub's editor with the template filled in.
 
