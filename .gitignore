@@ -1,0 +1,6 @@
+site.json
+_site/
+.DS_Store
+__pycache__/
+# Raw survey microdata (ESS etc.) must not be redistributed — keep it local
+data/raw/
