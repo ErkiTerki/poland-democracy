@@ -8,6 +8,8 @@ that rebuilds automatically on every push to `main`.
 ## How the site works
 - `content/<collection>/*.md` holds the content. Each file is ONE item with a `key: value` frontmatter block.
 - `build.py` compiles content into `site.json` (gitignored), and the site (`index.html`, `assets/`) renders it.
+- Teammates also edit from the website (`assets/store.js` commits files via the GitHub API). Those commits look like
+  `tasks: add "…" (via site, @login)`. Expect them, and always `git pull --rebase` first.
 - **Edit content and data files. Only touch `index.html` / `assets/` / `build.py` if you were asked to change the site itself.**
 
 ## Workflow (every change)

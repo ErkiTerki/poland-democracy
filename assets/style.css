@@ -332,3 +332,62 @@ dialog[open] { animation: pop .16s ease-out; }
 .milestones li.next::before { background: #fff; box-shadow: 0 0 0 4px rgba(255,255,255,0.25); }
 .milestones li.past { opacity: 0.55; text-decoration: line-through; }
 .milestones li.past::before { background: #fff; }
+
+/* ---------- editing ---------- */
+.top-inner { gap: 12px; }
+.brand { margin-right: auto; }
+.auth-btn {
+  display: inline-flex; align-items: center; gap: 8px; font: 500 0.86rem var(--sans); cursor: pointer;
+  padding: 5px 12px 5px 8px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+}
+.auth-btn:hover { background: var(--surface-2); }
+.auth-btn .auth-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-left: 4px; box-shadow: 0 0 0 3px var(--red-soft); }
+.auth-btn.on { padding-left: 4px; }
+.avatar.me { background: var(--red); color: #fff; width: 24px; height: 24px; }
+@media (max-width: 520px) { .auth-btn .auth-label { display: none; } .auth-btn { padding: 4px; } .auth-btn .auth-dot { margin: 0 4px; } .top-inner { flex-wrap: wrap; } nav { order: 3; } }
+
+.cal-day { cursor: pointer; }
+.cal-day .add { pointer-events: none; }
+.col-add {
+  display: block; width: 100%; margin-top: 8px; padding: 9px; border-radius: 10px; border: 1.5px dashed var(--border-strong);
+  background: none; color: var(--text-2); font: 500 0.85rem var(--sans); cursor: pointer;
+}
+.col-add:hover { color: var(--red-ink); border-color: var(--red); background: var(--red-wash); }
+
+.btn.danger { color: var(--red-ink); border-color: transparent; background: transparent; }
+.btn.danger:hover { background: var(--red-soft); }
+.btn[disabled] { opacity: 0.6; cursor: progress; }
+.quick { display: flex; gap: 8px; flex-wrap: wrap; margin: -4px 0 16px; }
+.foot-links { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.foot-right { display: flex; gap: 8px; margin-left: auto; }
+
+.form .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin-top: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1; min-width: 0; }
+.field.half { grid-column: span 1; }
+@media (max-width: 520px) { .field.half { grid-column: 1 / -1; } }
+.field[hidden] { display: none; }
+.field > span { font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
+.field .req { color: var(--red); font-style: normal; }
+.field input, .field select, .field textarea {
+  font: 0.94rem/1.45 var(--sans); color: var(--text); background: var(--page); width: 100%;
+  border: 1px solid var(--border-strong); border-radius: 10px; padding: 9px 11px; transition: border-color .15s, box-shadow .15s;
+}
+.field textarea { resize: vertical; min-height: 90px; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+.field.check { flex-direction: row; align-items: center; gap: 10px; align-self: end; padding: 10px 0; cursor: pointer; }
+.field.check input { width: 18px; height: 18px; accent-color: var(--red); margin: 0; }
+.field.check span { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+.form-error { color: var(--red-ink); background: var(--red-soft); padding: 9px 12px; border-radius: 10px; font-size: 0.88rem; margin: 14px 0 0; }
+.fine { font-size: 0.8rem; color: var(--muted); margin: 14px 0 0; }
+.steps { color: var(--text-2); padding-left: 1.3em; margin: 4px 0 18px; }
+.steps li { margin-bottom: 8px; }
+.steps li::marker { color: var(--red); font-weight: 700; }
+.steps code { font-size: 0.85em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 24px; z-index: 100; transform: translate(-50%, 16px); opacity: 0;
+  background: var(--text); color: var(--page); padding: 11px 18px; border-radius: 12px; box-shadow: var(--shadow-lg);
+  font-size: 0.9rem; max-width: calc(100vw - 32px); transition: opacity .2s, transform .2s;
+}
+.toast.in { opacity: 1; transform: translate(-50%, 0); }
+.toast.err { background: var(--red); color: #fff; }

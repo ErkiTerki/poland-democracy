@@ -1,18 +1,7 @@
-// Renders site.json (built from content/ by build.py). No framework, no build step.
+// Renders site.json (built from content/ by build.py), plus forms that save via Store (assets/store.js).
 const REPO = "ErkiTerki/poland-democracy";
 const GH = `https://github.com/${REPO}`;
-
-// Prefilled templates for GitHub's new-file page (?filename=&value=).
-const TEMPLATES = {
-  tasks: (d) => ["short-task-name.md", `---\ntitle: \nstatus: todo\nowner: \ndue: ${d || ""}\n---\nWhat done looks like:\n`],
-  events: (d) => [`${d || "YYYY-MM-DD"}-event-name.md`, `---\ntitle: \ndate: ${d || ""}\ntime: \ntype: meeting\nlocation: \n---\n`],
-  datasets: () => ["dataset-name.md", "---\ntitle: \ncategory: \nurl: \nversion: \npoland_coverage: \nstatus: not-started\nowner: \n---\n**What it measures:** \n\n**Caveats:** \n"],
-  papers: () => ["author-year-keyword.md", "---\ntitle: \nauthors: \nyear: \nurl: \nstatus: to-read\nreader: \ntags: \n---\n**Key claim:** \n\n**Method / data:** \n\n**How we use it:** \n"],
-};
-const newUrl = (name, date) => {
-  const [file, value] = TEMPLATES[name](date);
-  return `${GH}/new/main/content/${name}?filename=${encodeURIComponent(file)}&value=${encodeURIComponent(value)}`;
-};
+const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=public_repo&description=Poland%20Democracy%20Hub";
 const editUrl = (item) => `${GH}/edit/main/${item.path}`;
 
 const EVENT_TYPES = {
@@ -29,6 +18,75 @@ const STATUS = {
 };
 const DATASET_STATUS = { "in-use": "green", exploring: "slate", "not-started": "", rejected: "amber" };
 const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
+const CATEGORIES = ["Measuring democracy", "Elections & turnout", "Parties & elections", "Attitudes & trust", "Other"];
+
+// ---------- form definitions (one per content collection) ----------
+const slug = (s) => String(s || "").toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "")
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "item";
+
+const FORMS = {
+  tasks: {
+    noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due"],
+    base: (f) => slug(f.title),
+    fields: [
+      { k: "title", label: "Task", type: "text", req: true, ph: "e.g. Pull V-Dem intervals for Poland" },
+      { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["doing", "Doing"], ["done", "Done"]] },
+      { k: "owner", label: "Owner", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
+      { k: "due", label: "Due date", type: "date", half: true },
+      { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
+    ],
+  },
+  events: {
+    noun: "event", dir: "content/events", order: ["title", "date", "time", "type", "location", "repeat", "until"],
+    base: (f) => `${f.date}-${slug(f.title)}`,
+    fields: [
+      { k: "title", label: "Event", type: "text", req: true, ph: "e.g. Mentor check-in" },
+      { k: "date", label: "Date", type: "date", req: true, half: true },
+      { k: "time", label: "Time", type: "time", half: true },
+      { k: "type", label: "Type", type: "select", half: true, def: "meeting", opts: Object.entries(EVENT_TYPES).map(([k, v]) => [k, v.label]) },
+      { k: "location", label: "Location", type: "text", half: true, ph: "HEC campus, Zoom…" },
+      { k: "repeat", label: "Repeats every week", type: "checkbox", value: "weekly", half: true },
+      { k: "until", label: "Repeat until", type: "date", half: true, showIf: "repeat" },
+      { k: "body", label: "Notes", type: "textarea", ph: "Agenda, who's going, links…" },
+    ],
+  },
+  datasets: {
+    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url", "version", "poland_coverage", "status", "owner"],
+    base: (f) => slug(f.title),
+    fields: [
+      { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
+      { k: "category", label: "Category", type: "select", half: true, def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
+      { k: "status", label: "Status", type: "select", half: true, def: "not-started", opts: [["not-started", "Not started"], ["exploring", "Exploring"], ["in-use", "In use"], ["rejected", "Rejected"]] },
+      { k: "url", label: "Link", type: "url", ph: "https://…" },
+      { k: "version", label: "Version used", type: "text", half: true, ph: "e.g. v16 (2026)" },
+      { k: "poland_coverage", label: "Poland coverage", type: "text", half: true, ph: "e.g. 1991–2025" },
+      { k: "owner", label: "Owner", type: "text", half: true, list: "owners" },
+      { k: "body", label: "Notes", type: "textarea", ph: "What it measures, who produces it, caveats…" },
+    ],
+  },
+  papers: {
+    noun: "paper", dir: "content/papers", order: ["title", "authors", "year", "url", "status", "reader", "tags"],
+    base: (f) => [slug(String(f.authors || "").split(/[,&]| and /)[0].trim().split(/\s+/).pop()), f.year, slug(f.title).split("-").slice(0, 3).join("-")].filter(Boolean).join("-"),
+    fields: [
+      { k: "title", label: "Title", type: "text", req: true },
+      { k: "authors", label: "Authors", type: "text", half: true, ph: "e.g. Lührmann & Lindberg" },
+      { k: "year", label: "Year", type: "number", half: true, ph: "2019" },
+      { k: "url", label: "Link", type: "url", ph: "DOI or URL (no PDFs in the repo)" },
+      { k: "status", label: "Status", type: "select", half: true, def: "to-read", opts: [["to-read", "To read"], ["reading", "Reading"], ["summarised", "Summarised"]] },
+      { k: "reader", label: "Reader", type: "text", half: true, list: "owners" },
+      { k: "tags", label: "Tags", type: "text", ph: "comma separated: Poland, judiciary" },
+      { k: "body", label: "Summary", type: "textarea", rows: 8, def: "**Key claim:** \n\n**Method / data:** \n\n**How we use it:** \n" },
+    ],
+  },
+  overview: {
+    noun: "overview", fixedPath: "content/overview.md", order: ["title", "question"],
+    fields: [
+      { k: "title", label: "Title", type: "text", req: true },
+      { k: "question", label: "Research question", type: "textarea", rows: 3 },
+      { k: "body", label: "Sections (Markdown — each “## Heading” becomes a card)", type: "textarea", rows: 14 },
+    ],
+  },
+};
 
 let SITE = null;
 const view = { calY: null, calM: null, owner: "" };
@@ -46,25 +104,221 @@ const fmtDate = (s, opts = { weekday: "short", day: "numeric", month: "short" })
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
 const initials = (name) => String(name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 const chip = (text, cls = "") => (text ? `<span class="chip ${cls}">${esc(text)}</span>` : "");
+const find = (collection, id) => SITE[collection].find((x) => x.id === id);
 
-// ---------- modal ----------
+// ---------- modal + toast ----------
 const modal = document.getElementById("modal");
-function openModal({ title, facts = "", body = "", item, link, accent = true }) {
-  document.getElementById("modal-body").innerHTML = `
-    <div class="modal-top ${accent ? "" : "neutral"}"></div>
-    <button class="btn ghost icon modal-close" aria-label="Close" data-close>✕</button>
-    <h2 class="modal-title" id="modal-title">${esc(title)}</h2>
-    <div class="modal-facts">${facts}</div>
-    <div class="modal-body prose">${body ? md(body) : '<p class="muted">No details yet.</p>'}</div>
-    <div class="modal-foot">
-      ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">Open source ↗</a>` : "<span></span>"}
-      ${item ? `<a class="btn" href="${editUrl(item)}" target="_blank" rel="noopener">Edit on GitHub</a>` : ""}
-    </div>`;
-  modal.showModal();
+const modalBody = document.getElementById("modal-body");
+function showModal(html) {
+  modalBody.innerHTML = `<button class="btn ghost icon modal-close" aria-label="Close" data-close>✕</button>${html}`;
+  if (!modal.open) modal.showModal();
 }
 modal.addEventListener("click", (e) => {
   if (e.target === modal || e.target.closest("[data-close]")) modal.close();
 });
+
+function toast(msg, kind = "ok") {
+  const t = document.createElement("div");
+  t.className = `toast ${kind}`;
+  t.innerHTML = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("in"));
+  setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, kind === "err" ? 7000 : 4200);
+}
+
+function viewModal({ title, facts = "", body = "", link, accent = true, actions = "", edit }) {
+  showModal(`
+    <div class="modal-top ${accent ? "" : "neutral"}"></div>
+    <h2 class="modal-title" id="modal-title">${esc(title)}</h2>
+    <div class="modal-facts">${facts}</div>
+    ${actions ? `<div class="quick">${actions}</div>` : ""}
+    <div class="modal-body prose">${body ? md(body) : '<p class="muted">No details yet.</p>'}</div>
+    <div class="modal-foot">
+      <span class="foot-links">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">Open source ↗</a>` : ""}
+        ${edit ? `<a class="edit-link" href="${editUrl(edit.item)}" target="_blank" rel="noopener">View file on GitHub</a>` : ""}</span>
+      ${edit ? `<button class="btn primary" data-edit="${edit.collection}" data-id="${esc(edit.item.id)}">Edit</button>` : ""}
+    </div>`);
+}
+
+// ---------- connect ----------
+let afterConnect = null;
+function requireAuth(then) {
+  if (Store.connected) return then();
+  afterConnect = then;
+  connectModal();
+}
+
+function connectModal(error = "") {
+  if (Store.connected) {
+    const a = Store.auth;
+    showModal(`
+      <div class="modal-top"></div>
+      <h2 class="modal-title">Connected</h2>
+      <p class="modal-body">You're editing as <strong>${esc(a.name)}</strong> (GitHub <strong>@${esc(a.login)}</strong>). Everything you save is committed to the shared repo under your account.</p>
+      <div class="modal-foot"><span></span><button class="btn" data-action="disconnect">Disconnect this browser</button></div>`);
+    return;
+  }
+  showModal(`
+    <div class="modal-top"></div>
+    <h2 class="modal-title">Connect to edit</h2>
+    <p class="modal-body">Saving writes straight to our shared GitHub repo, under your own account. One-time setup, about a minute:</p>
+    <ol class="steps">
+      <li><strong>Accept the collaborator invite</strong> from Erik (check your email, or <a href="${GH}/invitations" target="_blank" rel="noopener">open the invite</a>).</li>
+      <li><a href="${TOKEN_URL}" target="_blank" rel="noopener"><strong>Create a token</strong> ↗</a>. The page opens with <code>public_repo</code> already ticked. Pick an expiry (e.g. 90 days), click <em>Generate token</em> at the bottom and copy it.</li>
+      <li>Paste it below.</li>
+    </ol>
+    <form class="form" id="connect-form" autocomplete="off">
+      <div class="fgrid">
+        <label class="field half"><span>Your name</span><input name="name" placeholder="Shown as task owner" value="${esc(localName())}"></label>
+        <label class="field half"><span>Token</span><input name="token" type="password" placeholder="ghp_…" required></label>
+      </div>
+      ${error ? `<p class="form-error">${esc(error)}</p>` : ""}
+      <p class="fine">The token stays in this browser only and is sent only to GitHub. Don't connect on a shared computer, or disconnect afterwards.</p>
+      <div class="modal-foot"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary" type="submit">Connect</button></div>
+    </form>`);
+  document.getElementById("connect-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const btn = e.target.querySelector("[type=submit]");
+    btn.disabled = true; btn.textContent = "Checking…";
+    try {
+      const a = await Store.connect(String(f.get("token")).trim(), String(f.get("name")).trim());
+      try { localStorage.setItem("pdh-name", a.name); } catch { /* ignore */ }
+      renderAuth();
+      toast(`Connected as <strong>@${esc(a.login)}</strong>`);
+      const next = afterConnect; afterConnect = null;
+      if (next) next(); else modal.close();
+    } catch (err) {
+      connectModal(err.message);
+    }
+  });
+}
+const localName = () => { try { return localStorage.getItem("pdh-name") || ""; } catch { return ""; } };
+
+function renderAuth() {
+  const b = document.getElementById("auth-btn");
+  if (!b) return;
+  b.innerHTML = Store.connected
+    ? `<span class="avatar me">${esc(initials(Store.auth.name))}</span><span class="auth-label">${esc(Store.auth.name.split(" ")[0])}</span>`
+    : `<span class="auth-dot"></span><span class="auth-label">Connect to edit</span>`;
+  b.classList.toggle("on", Store.connected);
+}
+
+// ---------- forms ----------
+function fieldHtml(f, val) {
+  const v = val ?? "";
+  const cls = `field${f.half ? " half" : ""}${f.showIf ? " cond" : ""}`;
+  const attrs = `name="${f.k}" ${f.req ? "required" : ""} ${f.ph ? `placeholder="${esc(f.ph)}"` : ""}`;
+  const dataIf = f.showIf ? ` data-if="${f.showIf}"` : "";
+  if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea></label>`;
+  if (f.type === "select") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><select ${attrs}>${f.opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+  if (f.type === "checkbox") return `<label class="${cls} check"${dataIf}><input type="checkbox" name="${f.k}" ${v ? "checked" : ""}><span>${esc(f.label)}</span></label>`;
+  return `<label class="${cls}"${dataIf}><span>${esc(f.label)}${f.req ? ' <em class="req">*</em>' : ""}</span><input type="${f.type}" ${attrs} value="${esc(v)}" ${f.list ? `list="${f.list}"` : ""}></label>`;
+}
+
+async function openForm(collection, id, defaults = {}) {
+  const spec = FORMS[collection];
+  const isNew = !id;
+  let current = null, sha = null;
+  showModal(`<div class="modal-top"></div><h2 class="modal-title">${isNew ? "New " + spec.noun : "Edit " + spec.noun}</h2><p class="muted">Loading latest version…</p>`);
+  if (!isNew) {
+    const path = collection === "overview" ? spec.fixedPath : find(collection, id).path;
+    try {
+      const r = await Store.read(path);
+      if (!r) { modal.close(); return toast("That item no longer exists. Someone may have deleted it.", "err"); }
+      current = r.item; sha = r.sha;
+    } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
+  }
+  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.datasets.map((d) => d.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
+  const values = (f) => {
+    if (current) return current[f.k];
+    if (f.k in defaults) return defaults[f.k];
+    return typeof f.def === "function" ? f.def() : f.def;
+  };
+  showModal(`
+    <div class="modal-top"></div>
+    <h2 class="modal-title">${isNew ? "New " + spec.noun : "Edit " + spec.noun}</h2>
+    <form class="form" id="item-form" autocomplete="off">
+      <div class="fgrid">${spec.fields.map((f) => fieldHtml(f, values(f))).join("")}</div>
+      <datalist id="owners">${owners.map((o) => `<option value="${esc(o)}">`).join("")}</datalist>
+      <p class="form-error" hidden></p>
+      <div class="modal-foot">
+        ${!isNew && collection !== "overview" ? '<button type="button" class="btn danger" data-del>Delete</button>' : "<span></span>"}
+        <span class="foot-right"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary" type="submit">${isNew ? "Add " + spec.noun : "Save changes"}</button></span>
+      </div>
+    </form>`);
+  const form = document.getElementById("item-form");
+  const syncCond = () => form.querySelectorAll("[data-if]").forEach((el) => { el.hidden = !form.elements[el.dataset.if].checked; });
+  form.addEventListener("change", syncCond); syncCond();
+  form.querySelector("input, textarea")?.focus();
+
+  const errBox = form.querySelector(".form-error");
+  const fail = (msg) => { errBox.hidden = false; errBox.textContent = msg; };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector("[type=submit]");
+    const fields = current ? { ...current } : {};
+    for (const f of spec.fields) {
+      const el = form.elements[f.k];
+      let v = f.type === "checkbox" ? (el.checked ? f.value : "") : el.value.trim();
+      if (f.showIf && !form.elements[f.showIf].checked) v = "";
+      if (v === "" && f.k !== "body") delete fields[f.k]; else fields[f.k] = v;
+    }
+    delete fields.id; delete fields.path;
+    const text = Store.serialize(fields, spec.order);
+    btn.disabled = true; btn.textContent = "Saving…";
+    try {
+      const path = spec.fixedPath || (current ? current.path : await Store.uniquePath(spec.dir, spec.base(fields)));
+      const who = Store.auth.login;
+      await Store.write(path, text, `${collection}: ${isNew ? "add" : "update"} "${fields.title}" (via site, @${who})`, sha);
+      applyLocal(collection, path, Store.parse(text, path));
+      modal.close();
+      toast(`<strong>Saved.</strong> Live for everyone in about a minute.`);
+    } catch (err) {
+      btn.disabled = false; btn.textContent = isNew ? "Add " + spec.noun : "Save changes";
+      if (err.status === 401) { Store.disconnect(); renderAuth(); return fail("Your token was rejected (expired?). Connect again."); }
+      fail(err.message);
+    }
+  });
+
+  form.querySelector("[data-del]")?.addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Click again to delete"; return; }
+    b.disabled = true; b.textContent = "Deleting…";
+    try {
+      await Store.remove(current.path, `${collection}: delete "${current.title}" (via site, @${Store.auth.login})`);
+      applyLocal(collection, current.path, null);
+      modal.close();
+      toast("Deleted.");
+    } catch (err) { fail(err.message); b.disabled = false; b.textContent = "Delete"; delete b.dataset.armed; }
+  });
+}
+
+async function quickStatus(id, status) {
+  const t = find("tasks", id);
+  try {
+    const r = await Store.read(t.path);
+    if (!r) return toast("That task no longer exists.", "err");
+    const fields = { ...r.item, status };
+    delete fields.id; delete fields.path;
+    const text = Store.serialize(fields, FORMS.tasks.order);
+    await Store.write(t.path, text, `tasks: "${fields.title}" → ${status} (via site, @${Store.auth.login})`, r.sha);
+    applyLocal("tasks", t.path, Store.parse(text, t.path));
+    modal.close();
+    toast(`Moved to <strong>${STATUS[status].label}</strong>.`);
+  } catch (err) { toast(esc(err.message), "err"); }
+}
+
+function applyLocal(collection, path, item) {
+  Store.remember(collection, path, item);
+  if (collection === "overview") SITE.overview = item;
+  else {
+    SITE[collection] = SITE[collection].filter((x) => x.path !== path);
+    if (item) SITE[collection].push(item);
+  }
+  render();
+}
 
 // ---------- events / calendar ----------
 function occurrences(fromIso, toIso) {
@@ -85,12 +339,12 @@ function occurrences(fromIso, toIso) {
 }
 
 function openEvent(id, on) {
-  const ev = SITE.events.find((e) => e.id === id);
+  const ev = find("events", id);
   const t = EVENT_TYPES[ev.type] || EVENT_TYPES.other;
-  openModal({
+  viewModal({
     title: ev.title,
-    facts: `${chip(t.label, t.chip)}${chip(fmtDate(on, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}${chip(ev.time)}${chip(ev.location)}${ev.repeat === "weekly" ? chip("Every week") : ""}`,
-    body: ev.body, item: ev, accent: ev.type === "board",
+    facts: `${chip(t.label, t.chip)}${chip(fmtDate(on, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}${chip(ev.time)}${chip(ev.location)}${ev.repeat === "weekly" ? chip("Every week" + (ev.until ? " until " + fmtDate(ev.until, { day: "numeric", month: "short" }) : "")) : ""}`,
+    body: ev.body, accent: ev.type === "board", edit: { collection: "events", item: ev },
   });
 }
 
@@ -105,12 +359,11 @@ function calendarHtml() {
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const day = iso(d);
     const list = evs.filter((e) => e.on === day);
-    const shown = list.slice(0, 3);
     const cls = ["cal-day", d.getMonth() !== view.calM && "out", day === today && "today", d.getDay() % 6 === 0 && "weekend"].filter(Boolean).join(" ");
-    cells += `<div class="${cls}">
+    cells += `<div class="${cls}" data-add="events" data-date="${day}" title="Add event on ${fmtDate(day)}">
       <span class="num">${d.getDate()}</span>
-      <a class="add" href="${newUrl("events", day)}" target="_blank" rel="noopener" title="Add event on ${fmtDate(day)}" aria-label="Add event on ${fmtDate(day)}">+</a>
-      <div class="day-evs">${shown.map((e) => `<button class="ev ${esc(EVENT_TYPES[e.type] ? e.type : "other")}" data-ev="${esc(e.id)}" data-on="${day}" title="${esc(e.title)}">${e.time ? esc(e.time) + " " : ""}${esc(e.title)}</button>`).join("")}</div>
+      <span class="add" aria-hidden="true">+</span>
+      <div class="day-evs">${list.slice(0, 3).map((e) => `<button class="ev ${esc(EVENT_TYPES[e.type] ? e.type : "other")}" data-ev="${esc(e.id)}" data-on="${day}" title="${esc(e.title)}">${e.time ? esc(e.time) + " " : ""}${esc(e.title)}</button>`).join("")}</div>
       ${list.length > 3 ? `<span class="more">+${list.length - 3} more</span>` : ""}
     </div>`;
   }
@@ -135,10 +388,8 @@ function calendarHtml() {
 function upcomingHtml() {
   const today = todayIso();
   const horizon = new Date(); horizon.setFullYear(horizon.getFullYear() + 1);
-  const all = occurrences(today, iso(horizon));
-  // Show only the next occurrence of a recurring event.
-  const seen = new Set();
-  const list = all.filter((e) => (e.repeat ? (seen.has(e.id) ? false : seen.add(e.id)) : true)).slice(0, 6);
+  const seen = new Set(); // only the next occurrence of a recurring event
+  const list = occurrences(today, iso(horizon)).filter((e) => (e.repeat ? (seen.has(e.id) ? false : seen.add(e.id)) : true)).slice(0, 6);
   return `<h3>Coming up</h3>
     <div class="up-list">${list.map((e) => {
       const d = parseDate(e.on);
@@ -149,21 +400,12 @@ function upcomingHtml() {
         <span class="up-text"><span class="up-title">${esc(e.title)}</span><br><span class="up-meta">${rel}${e.time ? " · " + esc(e.time) : ""}${e.location ? " · " + esc(e.location) : ""}</span></span>
       </button>`;
     }).join("") || '<p class="up-empty">Nothing scheduled.</p>'}</div>
-    <a class="btn primary" href="${newUrl("events")}" target="_blank" rel="noopener">+ Add event</a>`;
-}
-
-function bindCalendar() {
-  document.querySelectorAll("[data-cal]").forEach((b) => b.addEventListener("click", () => {
-    const step = Number(b.dataset.cal);
-    if (step === 0) { const t = new Date(); view.calY = t.getFullYear(); view.calM = t.getMonth(); }
-    else { const d = new Date(view.calY, view.calM + step, 1); view.calY = d.getFullYear(); view.calM = d.getMonth(); }
-    document.getElementById("cal").innerHTML = calendarHtml();
-    bindCalendar();
-  }));
-  document.querySelectorAll("#cal [data-ev]").forEach((b) => b.addEventListener("click", () => openEvent(b.dataset.ev, b.dataset.on)));
+    <button class="btn primary" data-add="events">+ Add event</button>`;
 }
 
 // ---------- views ----------
+const addBtn = (collection, label) => `<button class="btn primary" data-add="${collection}">${label}</button>`;
+
 function viewOverview() {
   const o = SITE.overview || {};
   const today = todayIso();
@@ -200,14 +442,14 @@ function viewOverview() {
     </div>
 
     <div class="section-head"><h2 class="section-title">Calendar</h2>
-      <span class="edit-link hover-hint">Hover a day and click + to add an event</span></div>
+      <span class="edit-link">Click a day to add an event</span></div>
     <div class="cal-wrap">
       <div class="card cal" id="cal">${calendarHtml()}</div>
       <div class="card upcoming">${upcomingHtml()}</div>
     </div>
 
     ${sections.length ? `<div class="section-head"><h2 class="section-title">The project</h2>
-      ${SITE.overview ? `<a class="edit-link" href="${editUrl(SITE.overview)}" target="_blank" rel="noopener">Edit</a>` : ""}</div>
+      <button class="btn ghost" data-edit="overview" data-id="overview">Edit</button></div>
     <div class="brief">${sections.map((s) => `<section class="card prose">${md(s)}</section>`).join("")}</div>` : ""}`;
 }
 
@@ -216,12 +458,13 @@ function pageHead(eyebrow, title, sub, action) {
 }
 
 function viewTasks() {
-  const add = `<a class="btn primary" href="${newUrl("tasks")}" target="_blank" rel="noopener">+ Add task</a>`;
-  const head = pageHead("Work split", "Tasks", "One file per task. Move a task along by changing its <code>status</code> to <code>todo</code>, <code>doing</code> or <code>done</code>.", SITE.tasks.length ? add : "");
+  const add = addBtn("tasks", "+ Add task");
+  const head = pageHead("Work split", "Tasks", "Click a task to move it along, edit it or delete it.", SITE.tasks.length ? add : "");
   if (!SITE.tasks.length) {
-    return `${head}<div class="empty"><h3>No tasks yet</h3><p>Add the first one, either with your agent ("add a task for…") or straight from the browser.</p>${add}</div>`;
+    return `${head}<div class="empty"><h3>No tasks yet</h3><p>Add the first one here, or ask your agent ("add a task for…").</p>${add}</div>`;
   }
   const owners = [...new Set(SITE.tasks.map((t) => t.owner || "Unassigned"))].sort();
+  if (view.owner && !owners.includes(view.owner)) view.owner = "";
   const today = todayIso();
   const tasks = SITE.tasks
     .filter((t) => !view.owner || (t.owner || "Unassigned") === view.owner)
@@ -240,6 +483,7 @@ function viewTasks() {
           </div>
         </button>`;
       }).join("") || '<div class="col-empty">Nothing here</div>'}
+      ${key === "todo" ? '<button class="col-add" data-add="tasks">+ Add task</button>' : ""}
     </div>`;
   };
   return `${head}
@@ -250,19 +494,16 @@ function viewTasks() {
     <div class="kanban">${col("todo")}${col("doing")}${col("done")}</div>`;
 }
 
-function rowsHtml(items, rowFn) {
-  return `<div class="card rows">${items.map(rowFn).join("")}</div>`;
-}
+const rowsHtml = (items, rowFn) => `<div class="card rows">${items.map(rowFn).join("")}</div>`;
 
 function viewDatasets() {
-  const add = `<a class="btn primary" href="${newUrl("datasets")}" target="_blank" rel="noopener">+ Add dataset</a>`;
-  const head = pageHead("Data catalog", "Data", "Every source we use or considered. Always record the version, since the brief asks us to cite it.", add);
+  const add = addBtn("datasets", "+ Add dataset");
+  const head = pageHead("Data catalog", "Data", "Every source we use or considered. Always record the version, since the brief asks us to cite it.", SITE.datasets.length ? add : "");
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
-  const ORDER = ["Measuring democracy", "Elections & turnout", "Parties & elections", "Attitudes & trust"];
-  const rank = (c) => (ORDER.indexOf(c) + 1 || 99);
+  const rank = (c) => (CATEGORIES.indexOf(c) + 1 || 99);
   const cats = [...new Set(SITE.datasets.map((d) => d.category || "Other"))].sort((a, b) => rank(a) - rank(b));
   return head + cats.map((c) => `<div class="group-title">${esc(c)}</div>` + rowsHtml(
-    SITE.datasets.filter((d) => (d.category || "Other") === c),
+    SITE.datasets.filter((d) => (d.category || "Other") === c).sort((a, b) => a.title.localeCompare(b.title)),
     (d) => `<button class="row" data-dataset="${esc(d.id)}">
       <div><div class="row-title">${esc(d.title)}</div><div class="row-sub">${esc([d.poland_coverage && "Poland: " + d.poland_coverage, d.version].filter(Boolean).join(" · ") || "No details yet")}</div></div>
       <div class="row-right">${d.owner && d.owner !== "unassigned" ? chip(d.owner) : ""}${chip((d.status || "not-started").replace("-", " "), DATASET_STATUS[d.status] ?? "")}</div>
@@ -270,55 +511,72 @@ function viewDatasets() {
 }
 
 function viewPapers() {
-  const add = `<a class="btn primary" href="${newUrl("papers")}" target="_blank" rel="noopener">+ Add paper</a>`;
-  const head = pageHead("Reading list", "Literature", "Papers, reports and books. Only a teammate who actually read one marks it <em>summarised</em>.", add);
+  const add = addBtn("papers", "+ Add paper");
+  const head = pageHead("Reading list", "Literature", "Papers, reports and books. Only a teammate who actually read one marks it <em>summarised</em>.", SITE.papers.length ? add : "");
   if (!SITE.papers.length) return `${head}<div class="empty"><h3>No papers yet</h3><p>Add something you've read or want to read.</p>${add}</div>`;
   const order = ["reading", "to-read", "summarised"];
   const names = { reading: "Reading now", "to-read": "To read", summarised: "Summarised" };
   return head + order.filter((s) => SITE.papers.some((p) => (p.status || "to-read") === s)).map((s) =>
     `<div class="group-title">${names[s]}</div>` + rowsHtml(
-      SITE.papers.filter((p) => (p.status || "to-read") === s).sort((a, b) => (b.year || "").localeCompare(a.year || "")),
+      SITE.papers.filter((p) => (p.status || "to-read") === s).sort((a, b) => String(b.year || "").localeCompare(String(a.year || ""))),
       (p) => `<button class="row" data-paper="${esc(p.id)}">
         <div><div class="row-title">${esc(p.title)}</div><div class="row-sub">${esc([p.authors, p.year].filter(Boolean).join(" · "))}</div></div>
         <div class="row-right">${(p.tags || "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3).map((t) => chip(t)).join("")}${p.reader ? chip("Read by " + p.reader, "slate") : ""}</div>
       </button>`)).join("");
 }
 
-// ---------- routing ----------
+// ---------- routing + clicks ----------
 const VIEWS = { overview: viewOverview, tasks: viewTasks, datasets: viewDatasets, papers: viewPapers };
 
 function render() {
-  const route = location.hash.slice(1).split("?")[0] || "overview";
-  const fn = VIEWS[route] || viewOverview;
-  document.getElementById("app").innerHTML = fn();
-  document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + (VIEWS[route] ? route : "overview")));
-  if (route === "overview" || !VIEWS[route]) {
-    bindCalendar();
-    document.querySelectorAll(".upcoming [data-ev]").forEach((b) => b.addEventListener("click", () => openEvent(b.dataset.ev, b.dataset.on)));
-  }
-  document.querySelectorAll("[data-owner]").forEach((b) => b.addEventListener("click", () => { view.owner = b.dataset.owner; render(); }));
-  document.querySelectorAll("[data-task]").forEach((b) => b.addEventListener("click", () => {
-    const t = SITE.tasks.find((x) => x.id === b.dataset.task);
-    const s = STATUS[t.status] || STATUS.todo;
-    openModal({ title: t.title, item: t, body: t.body, accent: t.status === "doing",
-      facts: `${chip(s.label, t.status === "done" ? "green" : t.status === "doing" ? "red" : "")}${chip(t.owner || "Unassigned", "slate")}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}` });
-  }));
-  document.querySelectorAll("[data-dataset]").forEach((b) => b.addEventListener("click", () => {
-    const d = SITE.datasets.find((x) => x.id === b.dataset.dataset);
-    openModal({ title: d.title, item: d, body: d.body, link: d.url, accent: false,
-      facts: `${chip(d.category)}${chip(d.version)}${d.poland_coverage ? chip("Poland: " + d.poland_coverage) : ""}${chip((d.status || "not-started").replace("-", " "), DATASET_STATUS[d.status] ?? "")}${d.owner ? chip(d.owner, "slate") : ""}` });
-  }));
-  document.querySelectorAll("[data-paper]").forEach((b) => b.addEventListener("click", () => {
-    const p = SITE.papers.find((x) => x.id === b.dataset.paper);
-    const [label, cls] = PAPER_STATUS[p.status] || PAPER_STATUS["to-read"];
-    openModal({ title: p.title, item: p, body: p.body, link: p.url, accent: false,
-      facts: `${chip(label, cls)}${chip([p.authors, p.year].filter(Boolean).join(", "))}${p.reader ? chip("Read by " + p.reader, "slate") : ""}` });
-  }));
+  const route = location.hash.slice(1).split("?")[0];
+  const key = VIEWS[route] ? route : "overview";
+  document.getElementById("app").innerHTML = VIEWS[key]();
+  document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + key));
 }
 
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-dataset],[data-paper],[data-owner],[data-cal],[data-status],[data-action],#auth-btn");
+  if (!el) return;
+  const d = el.dataset;
+  if (el.id === "auth-btn") return connectModal();
+  if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
+  if (d.ev) return openEvent(d.ev, d.on);
+  if (d.add) return requireAuth(() => openForm(d.add, null, d.date ? { date: d.date } : {}));
+  if (d.edit) return requireAuth(() => openForm(d.edit, d.edit === "overview" ? "overview" : d.id));
+  if (d.status) return requireAuth(() => quickStatus(d.id, d.status));
+  if (d.owner !== undefined) { view.owner = d.owner; return render(); }
+  if (d.cal !== undefined) {
+    const step = Number(d.cal);
+    if (step === 0) { const t = new Date(); view.calY = t.getFullYear(); view.calM = t.getMonth(); }
+    else { const n = new Date(view.calY, view.calM + step, 1); view.calY = n.getFullYear(); view.calM = n.getMonth(); }
+    document.getElementById("cal").innerHTML = calendarHtml();
+    return;
+  }
+  if (d.task) {
+    const t = find("tasks", d.task);
+    const s = STATUS[t.status] ? t.status : "todo";
+    const moves = Object.keys(STATUS).filter((k) => k !== s).map((k) => `<button class="btn" data-status="${k}" data-id="${esc(t.id)}">${k === "done" ? "✓ Mark done" : "Move to " + STATUS[k].label}</button>`).join("");
+    return viewModal({ title: t.title, body: t.body, accent: s === "doing", actions: moves, edit: { collection: "tasks", item: t },
+      facts: `${chip(STATUS[s].label, s === "done" ? "green" : s === "doing" ? "red" : "")}${chip(t.owner || "Unassigned", "slate")}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}` });
+  }
+  if (d.dataset) {
+    const x = find("datasets", d.dataset);
+    return viewModal({ title: x.title, body: x.body, link: x.url, accent: false, edit: { collection: "datasets", item: x },
+      facts: `${chip(x.category)}${chip(x.version)}${x.poland_coverage ? chip("Poland: " + x.poland_coverage) : ""}${chip((x.status || "not-started").replace("-", " "), DATASET_STATUS[x.status] ?? "")}${x.owner ? chip(x.owner, "slate") : ""}` });
+  }
+  if (d.paper) {
+    const p = find("papers", d.paper);
+    const [label, cls] = PAPER_STATUS[p.status] || PAPER_STATUS["to-read"];
+    return viewModal({ title: p.title, body: p.body, link: p.url, accent: false, edit: { collection: "papers", item: p },
+      facts: `${chip(label, cls)}${chip([p.authors, p.year].filter(Boolean).join(", "))}${p.reader ? chip("Read by " + p.reader, "slate") : ""}` });
+  }
+});
+
+renderAuth();
 fetch("site.json", { cache: "no-store" })
   .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then((data) => { SITE = data; render(); addEventListener("hashchange", () => { render(); scrollTo(0, 0); }); })
+  .then((data) => { SITE = Store.applyPending(data); render(); addEventListener("hashchange", () => { render(); scrollTo(0, 0); }); })
   .catch(() => {
     document.getElementById("app").innerHTML = `<div class="empty" style="margin-top:40px"><h3>site.json is missing</h3>
       <p>Run <code>python3 build.py</code> in the repo, then <code>python3 -m http.server</code> and open localhost:8000.</p></div>`;
