@@ -8,7 +8,6 @@ that rebuilds automatically on every push to `main`.
 ## How the site works
 - `content/<collection>/*.md` holds the content. Each file is ONE item with a `key: value` frontmatter block.
 - `build.py` compiles content into `site.json` (gitignored), and the site (`index.html`, `assets/`) renders it.
-- `data/*.csv` holds tidy data for charts. A chart is a file in `content/charts/` that points at a CSV.
 - **Edit content and data files. Only touch `index.html` / `assets/` / `build.py` if you were asked to change the site itself.**
 
 ## Workflow (every change)
@@ -24,12 +23,13 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 
 | Collection | Filename | Fields |
 |---|---|---|
-| tasks | `short-name.md` | title, status (`todo`/`doing`/`done`), owner, due (YYYY-MM-DD), board (1/2/3) |
-| datasets | `source-name.md` | title, category, url, version, poland_coverage, status (`not-started`/`exploring`/`in-use`/`rejected`), owner |
-| papers | `author-year-keyword.md` | title, authors, year, url, status (`to-read`/`reading`/`summarised`), reader, tags |
-| decisions | `NNN-short-name.md` | title, status (`proposed`/`decided`/`reversed`), date, owner |
-| meetings | `YYYY-MM-DD-type.md` | title, date, type (`team`/`mentor`/`board`/`project-owner`), attendees |
-| charts | `NN-short-name.md` | title, file (`data/x.csv`), x, series (comma list of CSV columns), labels, highlight, ymin, ymax, source |
+| tasks | `short-name.md` | title, status (`todo`/`doing`/`done`), owner, due (YYYY-MM-DD) |
+| events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
+| datasets | `source-name.md` | title, category (`Measuring democracy`/`Elections & turnout`/`Parties & elections`/`Attitudes & trust`), url, version, poland_coverage, status (`not-started`/`exploring`/`in-use`/`rejected`), owner |
+| papers | `author-year-keyword.md` | title, authors, year, url, status (`to-read`/`reading`/`summarised`), reader, tags (comma list) |
+
+The overview page text lives in `content/overview.md`: a `question:` field plus `## ` sections, one card each.
+Events appear on the Overview calendar. `board` events also drive the countdown.
 
 Paper summaries use the body sections **Key claim / Method & data / How we use it**. Only mark a
 paper `summarised` if a human on the team actually read it. Never invent a summary of a paper you

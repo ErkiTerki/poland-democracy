@@ -29,7 +29,8 @@ jobs:
       - name: Collect site files
         run: |
           mkdir _site
-          cp -r index.html site.json assets data _site/
+          cp -r index.html site.json assets _site/
+          if [ -d data ]; then cp -r data _site/; fi
       - uses: actions/upload-pages-artifact@v3
       - id: deployment
         uses: actions/deploy-pages@v4
