@@ -396,7 +396,6 @@ dialog[open] { animation: pop .16s ease-out; }
 .g-path:hover { border-color: var(--red); transform: translateY(-1px); }
 .g-path b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; }
 .g-path span:last-child { color: var(--text-2); font-size: 0.92rem; }
-.g-ico { font-size: 1.6rem; margin-bottom: 4px; }
 .g-note { color: var(--text-2); margin: 14px 0 0; font-size: 0.92rem; }
 .g-h { margin: 48px 0 14px; scroll-margin-top: 90px; }
 .g-card { padding: 24px 26px; }

@@ -581,8 +581,8 @@ function viewGuide() {
     </section>
 
     <div class="g-paths">
-      <a class="card g-path" href="#g-site"><span class="g-ico">💻</span><b>Edit on the website</b><span>Click, type, save. Set it up once in about 2 minutes.</span></a>
-      <a class="card g-path" href="#g-agent"><span class="g-ico">🤖</span><b>Let your AI agent do it</b><span>Tell Claude what you want in plain words and it updates the hub.</span></a>
+      <a class="card g-path" href="#g-site"><b>Edit on the website</b><span>Click, type, save. Set it up once in about 2 minutes.</span></a>
+      <a class="card g-path" href="#g-agent"><b>Let your AI agent do it</b><span>Tell Claude what you want in plain words and it updates the hub.</span></a>
     </div>
     <p class="g-note">You can use both. Whatever you change shows up for <strong>everyone</strong> about a minute later.</p>
 
@@ -601,13 +601,13 @@ function viewGuide() {
     <div class="card g-card">
       <div class="g-sub">Everyday use</div>
       <div class="g-how">
-        <div><h3>📅 Add an event</h3><p>Overview → <b>click a day</b> in the calendar → fill in the form → <b>Add event</b>.</p></div>
-        <div><h3>✅ Add a task</h3><p>Tasks → <b>+ Add task</b>. Put your name as owner and pick a due date.</p></div>
-        <div><h3>➡️ Move a task</h3><p>Click the task → <b>Move to Doing</b> or <b>✓ Mark done</b>.</p></div>
-        <div><h3>✏️ Change or delete</h3><p>Click anything → <b>Edit</b>. To delete, use <b>Delete</b> in the edit form (click it twice).</p></div>
-        <div><h3>📊 Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Add a link and a one-line description. Click any dataset to see it.</p></div>
-        <div><h3>📝 Write a note</h3><p>Notes → <b>+ New note</b>. Give it a headline. The date it was last saved is added for you.</p></div>
-        <div><h3>📚 Add a paper</h3><p>Literature → <b>+ Add paper</b>. Only mark it <b>Summarised</b> once someone has actually read it.</p></div>
+        <div><h3>Add an event</h3><p>Overview → <b>click a day</b> in the calendar → fill in the form → <b>Add event</b>.</p></div>
+        <div><h3>Add a task</h3><p>Tasks → <b>+ Add task</b>. Put your name as owner and pick a due date.</p></div>
+        <div><h3>Move a task</h3><p>Click the task → <b>Move to Doing</b> or <b>✓ Mark done</b>.</p></div>
+        <div><h3>Change or delete</h3><p>Click anything → <b>Edit</b>. To delete, use <b>Delete</b> in the edit form (click it twice).</p></div>
+        <div><h3>Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Add a link and a one-line description. Click any dataset to see it.</p></div>
+        <div><h3>Write a note</h3><p>Notes → <b>+ New note</b>. Give it a headline. The date it was last saved is added for you.</p></div>
+        <div><h3>Add a paper</h3><p>Literature → <b>+ Add paper</b>. Only mark it <b>Summarised</b> once someone has actually read it.</p></div>
       </div>
     </div>
 
