@@ -54,7 +54,7 @@ const FORMS = {
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
-      { k: "category", label: "Category", type: "select", half: true, def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
+      { k: "category", label: "Category", type: "select", def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
       { k: "url", label: "Link", type: "url", ph: "https://…" },
       { k: "version", label: "Version used", type: "text", half: true, ph: "e.g. v16 (2026)" },
       { k: "poland_coverage", label: "Poland coverage", type: "text", half: true, ph: "e.g. 1991–2025" },
