@@ -61,17 +61,13 @@ const FORMS = {
     ],
   },
   papers: {
-    noun: "paper", dir: "content/papers", order: ["title", "authors", "year", "url", "status", "reader", "tags"],
-    base: (f) => [slug(String(f.authors || "").split(/[,&]| and /)[0].trim().split(/\s+/).pop()), f.year, slug(f.title).split("-").slice(0, 3).join("-")].filter(Boolean).join("-"),
+    noun: "paper", dir: "content/papers", order: ["title", "url", "status"],
+    base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Title", type: "text", req: true },
-      { k: "authors", label: "Authors", type: "text", half: true, ph: "e.g. Lührmann & Lindberg" },
-      { k: "year", label: "Year", type: "number", half: true, ph: "2019" },
       { k: "url", label: "Link", type: "url", ph: "DOI or URL (no PDFs in the repo)" },
-      { k: "status", label: "Status", type: "select", half: true, def: "to-read", opts: [["to-read", "To read"], ["reading", "Reading"], ["summarised", "Summarised"]] },
-      { k: "reader", label: "Reader", type: "text", half: true, list: "owners" },
-      { k: "tags", label: "Tags", type: "text", ph: "comma separated: Poland, judiciary" },
-      { k: "body", label: "Summary", type: "textarea", rows: 8, def: "**Key claim:** \n\n**Method / data:** \n\n**How we use it:** \n" },
+      { k: "status", label: "Status", type: "select", def: "to-read", opts: [["to-read", "To read"], ["reading", "Reading"], ["summarised", "Summarised"]] },
+      { k: "body", label: "Notes", type: "textarea", rows: 8 },
     ],
   },
   notes: {
@@ -530,10 +526,9 @@ function viewPapers() {
   const names = { reading: "Reading now", "to-read": "To read", summarised: "Summarised" };
   return head + order.filter((s) => SITE.papers.some((p) => (p.status || "to-read") === s)).map((s) =>
     `<div class="group-title">${names[s]}</div>` + rowsHtml(
-      SITE.papers.filter((p) => (p.status || "to-read") === s).sort((a, b) => String(b.year || "").localeCompare(String(a.year || ""))),
+      SITE.papers.filter((p) => (p.status || "to-read") === s).sort((a, b) => a.title.localeCompare(b.title)),
       (p) => `<button class="row" data-paper="${esc(p.id)}">
-        <div><div class="row-title">${esc(p.title)}</div><div class="row-sub">${esc([p.authors, p.year].filter(Boolean).join(" · "))}</div></div>
-        <div class="row-right">${(p.tags || "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3).map((t) => chip(t)).join("")}${p.reader ? chip("Read by " + p.reader, "slate") : ""}</div>
+        <div><div class="row-title">${esc(p.title)}</div>${p.url ? `<div class="row-sub">${esc(p.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0])}</div>` : ""}</div>
       </button>`)).join("");
 }
 
@@ -674,7 +669,7 @@ document.addEventListener("click", (e) => {
     const p = find("papers", d.paper);
     const [label, cls] = PAPER_STATUS[p.status] || PAPER_STATUS["to-read"];
     return viewModal({ title: p.title, body: p.body, link: p.url, accent: false, edit: { collection: "papers", item: p },
-      facts: `${chip(label, cls)}${chip([p.authors, p.year].filter(Boolean).join(", "))}${p.reader ? chip("Read by " + p.reader, "slate") : ""}` });
+      facts: chip(label, cls) });
   }
 });
 

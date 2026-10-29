@@ -28,7 +28,7 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 | tasks | `short-name.md` | title, status (`todo`/`doing`/`done`), owner, due (YYYY-MM-DD) |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
-| papers | `author-year-keyword.md` | title, authors, year, url, status (`to-read`/`reading`/`summarised`), reader, tags (comma list) |
+| papers | `short-title.md` | title, url, status (`to-read`/`reading`/`summarised`). Body = notes |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
 
 The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
@@ -37,7 +37,7 @@ Events appear on the Overview calendar. `board` events also drive the countdown.
 Notes belong to whoever wrote them: don't edit a teammate's note unless they ask. Notes are public too, so no personal
 data or private remarks about people.
 
-Paper summaries use the body sections **Key claim / Method & data / How we use it**. Only mark a
+Paper notes go in the body. Only mark a
 paper `summarised` if a human on the team actually read it. Never invent a summary of a paper you
 haven't been given the text of.
 
