@@ -78,6 +78,16 @@ const FORMS = {
       { k: "body", label: "Summary", type: "textarea", rows: 8, def: "**Key claim:** \n\n**Method / data:** \n\n**How we use it:** \n" },
     ],
   },
+  notes: {
+    noun: "note", dir: "content/notes", order: ["title", "author", "updated"],
+    base: (f) => [slug(f.author).split("-")[0], slug(f.title)].filter(Boolean).join("-"),
+    stamp: (f) => { const d = new Date(); f.updated = `${iso(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`; },
+    fields: [
+      { k: "title", label: "Headline", type: "text", req: true, ph: "e.g. Notes from the Latitudes kick-off" },
+      { k: "author", label: "Written by", type: "text", list: "owners", def: () => Store.auth?.name || "" },
+      { k: "body", label: "Notes (Markdown works: **bold**, - lists, ## headings)", type: "textarea", rows: 14 },
+    ],
+  },
   overview: {
     noun: "overview", fixedPath: "content/overview.md", order: ["title", "question"],
     fields: [
@@ -89,7 +99,7 @@ const FORMS = {
 };
 
 let SITE = null;
-const view = { calY: null, calM: null, owner: "" };
+const view = { calY: null, calM: null, owner: "", author: "" };
 
 // ---------- helpers ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -229,7 +239,7 @@ async function openForm(collection, id, defaults = {}) {
       current = r.item; sha = r.sha;
     } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
   }
-  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.datasets.map((d) => d.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
+  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.datasets.map((d) => d.owner), ...SITE.notes.map((n) => n.author), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
     if (current) return current[f.k];
     if (f.k in defaults) return defaults[f.k];
@@ -266,6 +276,7 @@ async function openForm(collection, id, defaults = {}) {
       if (v === "" && f.k !== "body") delete fields[f.k]; else fields[f.k] = v;
     }
     delete fields.id; delete fields.path;
+    spec.stamp?.(fields);
     const text = Store.serialize(fields, spec.order);
     btn.disabled = true; btn.textContent = "Saving…";
     try {
@@ -525,6 +536,41 @@ function viewPapers() {
       </button>`)).join("");
 }
 
+// "2026-10-29 14:05" → "Today, 14:05" / "29 Oct 2026, 14:05"
+function fmtSaved(s) {
+  if (!s) return "";
+  const [day, time] = String(s).split(" ");
+  const ago = daysBetween(day, todayIso());
+  const when = ago === 0 ? "Today" : ago === 1 ? "Yesterday" : fmtDate(day, { day: "numeric", month: "short", year: "numeric" });
+  return time ? `${when}, ${time}` : when;
+}
+const excerpt = (s, n = 180) => {
+  const t = String(s || "").replace(/^\s*([-+]|\d+\.)\s+/gm, "").replace(/[#*_>`~]|\[|\]\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+  return t.length > n ? t.slice(0, n).replace(/\s+\S*$/, "") + "…" : t;
+};
+
+function viewNotes() {
+  const add = addBtn("notes", "+ New note");
+  const head = pageHead("Notebook", "Notes", "Meeting notes, reading notes, ideas. Each note shows who wrote it and when it was last saved.", SITE.notes.length ? add : "");
+  if (!SITE.notes.length) return `${head}<div class="empty"><h3>No notes yet</h3><p>Write up a meeting, a reading or an idea, and give it a headline.</p>${add}</div>`;
+  const authors = [...new Set(SITE.notes.map((n) => n.author || "Unknown"))].sort();
+  if (view.author && !authors.includes(view.author)) view.author = "";
+  const notes = SITE.notes
+    .filter((n) => !view.author || (n.author || "Unknown") === view.author)
+    .sort((a, b) => String(b.updated || "").localeCompare(String(a.updated || "")));
+  return `${head}
+    ${authors.length > 1 ? `<div class="toolbar"><div class="seg" role="group" aria-label="Filter by author">
+      <button data-author="" class="${view.author ? "" : "on"}">Everyone</button>
+      ${authors.map((a) => `<button data-author="${esc(a)}" class="${view.author === a ? "on" : ""}">${esc(a)}</button>`).join("")}
+    </div></div>` : ""}
+    <div class="notes-grid">${notes.map((n) => `<button class="card note" data-note="${esc(n.id)}">
+      <div class="note-title">${esc(n.title || n.id)}</div>
+      <p class="note-ex">${esc(excerpt(n.body)) || '<span class="muted">Empty note</span>'}</p>
+      <div class="note-meta"><span class="avatar" title="${esc(n.author || "Unknown")}">${n.author ? esc(initials(n.author)) : "?"}</span>
+        <span class="note-by">${esc(n.author || "Unknown")}</span>${n.updated ? `<span class="note-saved">Saved ${esc(fmtSaved(n.updated))}</span>` : ""}</div>
+    </button>`).join("")}</div>`;
+}
+
 const SITE_URL = "https://erkiterki.github.io/poland-democracy/";
 const AGENT_PROMPT = `Please set me up with my team's shared project hub. Read ${SITE_URL}AGENT_SETUP.md and follow every step in it.`;
 
@@ -559,6 +605,7 @@ function viewGuide() {
         <div><h3>➡️ Move a task</h3><p>Click the task → <b>Move to Doing</b> or <b>✓ Mark done</b>.</p></div>
         <div><h3>✏️ Change or delete</h3><p>Click anything → <b>Edit</b>. To delete, use <b>Delete</b> in the edit form (click it twice).</p></div>
         <div><h3>📊 Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Always write which <b>version</b> you used.</p></div>
+        <div><h3>📝 Write a note</h3><p>Notes → <b>+ New note</b>. Give it a headline. The date it was last saved is added for you.</p></div>
         <div><h3>📚 Add a paper</h3><p>Literature → <b>+ Add paper</b>. Only mark it <b>Summarised</b> once someone has actually read it.</p></div>
       </div>
     </div>
@@ -590,7 +637,7 @@ function viewGuide() {
 }
 
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, datasets: viewDatasets, papers: viewPapers, guide: viewGuide };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];
@@ -602,7 +649,7 @@ function render() {
 document.addEventListener("click", (e) => {
   const jump = e.target.closest('a[href^="#g-"]');
   if (jump) { e.preventDefault(); document.querySelector(jump.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); return; }
-  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-dataset],[data-paper],[data-owner],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-dataset],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -619,6 +666,7 @@ document.addEventListener("click", (e) => {
   if (d.edit) return requireAuth(() => openForm(d.edit, d.edit === "overview" ? "overview" : d.id));
   if (d.status) return requireAuth(() => quickStatus(d.id, d.status));
   if (d.owner !== undefined) { view.owner = d.owner; return render(); }
+  if (d.author !== undefined) { view.author = d.author; return render(); }
   if (d.cal !== undefined) {
     const step = Number(d.cal);
     if (step === 0) { const t = new Date(); view.calY = t.getFullYear(); view.calM = t.getMonth(); }
@@ -637,6 +685,11 @@ document.addEventListener("click", (e) => {
     const x = find("datasets", d.dataset);
     return viewModal({ title: x.title, body: x.body, link: x.url, accent: false, edit: { collection: "datasets", item: x },
       facts: `${chip(x.category)}${chip(x.version)}${x.poland_coverage ? chip("Poland: " + x.poland_coverage) : ""}${chip((x.status || "not-started").replace("-", " "), DATASET_STATUS[x.status] ?? "")}${x.owner ? chip(x.owner, "slate") : ""}` });
+  }
+  if (d.note) {
+    const n = find("notes", d.note);
+    return viewModal({ title: n.title, body: n.body, accent: false, edit: { collection: "notes", item: n },
+      facts: `${chip(n.author || "Unknown", "slate")}${n.updated ? chip("Last saved " + fmtSaved(n.updated)) : ""}` });
   }
   if (d.paper) {
     const p = find("papers", d.paper);
