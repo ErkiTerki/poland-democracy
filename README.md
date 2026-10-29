@@ -9,7 +9,7 @@ and Radical Voting in Europe**, focused on Poland's democratic U-turn.
 - **On the website:** click **Connect to edit** (top right) once and paste a GitHub token (the site walks you
   through it). After that you can add, edit and delete tasks, events, datasets and papers right on the site.
   Each save is a commit under your GitHub account, live for everyone about a minute later.
-- **With your agent (Claude Code etc.):** clone the repo and ask it to add a task, summarise a paper,
+- **With your agent (Claude Code, Codex, …):** clone the repo and ask it to add a task, summarise a paper,
   log a dataset or add a calendar event. It follows the rules in [`CLAUDE.md`](CLAUDE.md).
 
 New teammate with an AI agent? Paste this into it: *"Read https://erkiterki.github.io/poland-democracy/AGENT_SETUP.md and follow every step in it."*

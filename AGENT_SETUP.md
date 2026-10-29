@@ -1,6 +1,6 @@
 # Agent setup: Poland Democracy Hub
 
-You are an AI coding agent (e.g. Claude Code) helping a member of a 4-person HEC capstone team.
+You are an AI coding agent (e.g. Claude Code or Codex) helping a member of a 4-person HEC capstone team.
 Your job is to connect this person to the team's shared hub so that, from now on, they can ask you to
 add tasks, calendar events, datasets and paper summaries, and you commit them to the shared repo.
 
@@ -19,7 +19,8 @@ the person may not be technical. **Ask before installing anything.**
 ## 2. Log in to GitHub
 1. Run `gh auth status`.
 2. If they're not logged in, ask the person to run `gh auth login` themselves (it's interactive:
-   choose GitHub.com → HTTPS → log in with a web browser). In Claude Code they can type `! gh auth login`.
+   choose GitHub.com → HTTPS → log in with a web browser). In Claude Code they can type `! gh auth login`;
+   in Codex or other agents, ask them to run it in their own terminal.
    If they don't have a GitHub account yet, they need to create one at https://github.com/signup first
    and send their username to Erik.
 
@@ -39,7 +40,7 @@ the person may not be technical. **Ask before installing anything.**
 3. If the folder already exists and is this repo, run `git pull --rebase` instead.
 
 ## 5. Learn the rules
-Read `CLAUDE.md` in the repo **in full**. It is the source of truth for file formats, the workflow
+Read `CLAUDE.md` in the repo **in full** (`AGENTS.md` points to the same file, for Codex). It is the source of truth for file formats, the workflow
 (pull → edit → `python3 build.py` → commit → pull --rebase → push) and the research rules from the
 challenge brief. Follow it for every change you make in this repo, now and in future sessions.
 

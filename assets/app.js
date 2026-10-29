@@ -583,7 +583,7 @@ function viewGuide() {
 
     <div class="g-paths">
       <a class="card g-path" href="#g-site"><b>Edit on the website</b><span>Click, type, save. Set it up once in about 2 minutes.</span></a>
-      <a class="card g-path" href="#g-agent"><b>Let your AI agent do it</b><span>Tell Claude what you want in plain words and it updates the hub.</span></a>
+      <a class="card g-path" href="#g-agent"><b>Let your AI agent do it</b><span>Tell Claude Code, Codex or another coding agent what you want in plain words, and it updates the hub.</span></a>
     </div>
     <p class="g-note">You can use both. Whatever you change shows up for <strong>everyone</strong> about a minute later.</p>
 
@@ -601,7 +601,7 @@ function viewGuide() {
 
     <h2 class="section-title g-h" id="g-agent">Let your AI agent do it</h2>
     <div class="card g-card">
-      <p class="g-lead">If you use Claude Code (or another coding agent), it can set itself up and then do all the editing for you.</p>
+      <p class="g-lead">Works with <b>Claude Code</b>, <b>Codex</b> or any other coding agent that can run commands on your computer. It sets itself up and then does the editing for you.</p>
       <ol class="g-steps">
         ${step(1, "Copy this message", `<div class="g-prompt"><code id="agent-prompt">${esc(AGENT_PROMPT)}</code><button class="btn primary" data-copy="agent-prompt">Copy</button></div>`)}
         ${step(2, "Paste it into your agent", `<p>It checks your tools, logs you in to GitHub, accepts the invite, downloads the project and learns the team rules. It asks before installing anything.</p>`)}
