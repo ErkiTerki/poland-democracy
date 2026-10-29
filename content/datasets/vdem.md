@@ -4,7 +4,6 @@ category: Measuring democracy
 url: https://www.v-dem.net/data/the-v-dem-dataset/
 version: v16 (2026)
 poland_coverage: 1789–2025
-status: in-use
 owner: unassigned
 ---
 **What it measures:** Hundreds of indicators from country-expert ratings, aggregated into electoral, liberal, participatory, deliberative and egalitarian democracy indices (0–1).

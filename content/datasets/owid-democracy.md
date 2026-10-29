@@ -4,7 +4,6 @@ category: Measuring democracy
 url: https://ourworldindata.org/democracy
 version: Pulled 2026-10-28 (cites V-Dem 2026)
 poland_coverage: Varies by index
-status: in-use
 owner: unassigned
 ---
 **What it measures:** Harmonised versions of the main democracy indices (V-Dem, EIU, Freedom House, Polity, Lexical). Useful for the "do two indices agree?" question.

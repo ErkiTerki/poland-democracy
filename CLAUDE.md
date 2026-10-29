@@ -27,7 +27,7 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 |---|---|---|
 | tasks | `short-name.md` | title, status (`todo`/`doing`/`done`), owner, due (YYYY-MM-DD) |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
-| datasets | `source-name.md` | title, category (`Measuring democracy`/`Elections & turnout`/`Parties & elections`/`Attitudes & trust`), url, version, poland_coverage, status (`not-started`/`exploring`/`in-use`/`rejected`), owner |
+| datasets | `source-name.md` | title, category (`Measuring democracy`/`Elections & turnout`/`Parties & elections`/`Attitudes & trust`), url, version, poland_coverage, owner |
 | papers | `author-year-keyword.md` | title, authors, year, url, status (`to-read`/`reading`/`summarised`), reader, tags (comma list) |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
 

@@ -16,7 +16,6 @@ const STATUS = {
   doing: { label: "Doing", color: "var(--red)" },
   done: { label: "Done", color: "var(--green)" },
 };
-const DATASET_STATUS = { "in-use": "green", exploring: "slate", "not-started": "", rejected: "amber" };
 const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
 const CATEGORIES = ["Measuring democracy", "Elections & turnout", "Parties & elections", "Attitudes & trust", "Other"];
 
@@ -51,12 +50,11 @@ const FORMS = {
     ],
   },
   datasets: {
-    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url", "version", "poland_coverage", "status", "owner"],
+    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url", "version", "poland_coverage", "owner"],
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
       { k: "category", label: "Category", type: "select", half: true, def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
-      { k: "status", label: "Status", type: "select", half: true, def: "not-started", opts: [["not-started", "Not started"], ["exploring", "Exploring"], ["in-use", "In use"], ["rejected", "Rejected"]] },
       { k: "url", label: "Link", type: "url", ph: "https://…" },
       { k: "version", label: "Version used", type: "text", half: true, ph: "e.g. v16 (2026)" },
       { k: "poland_coverage", label: "Poland coverage", type: "text", half: true, ph: "e.g. 1991–2025" },
@@ -513,7 +511,7 @@ function viewDatasets() {
     SITE.datasets.filter((d) => (d.category || "Other") === c).sort((a, b) => a.title.localeCompare(b.title)),
     (d) => `<button class="row" data-dataset="${esc(d.id)}">
       <div><div class="row-title">${esc(d.title)}</div><div class="row-sub">${esc([d.poland_coverage && "Poland: " + d.poland_coverage, d.version].filter(Boolean).join(" · ") || "No details yet")}</div></div>
-      <div class="row-right">${d.owner && d.owner !== "unassigned" ? chip(d.owner) : ""}${chip((d.status || "not-started").replace("-", " "), DATASET_STATUS[d.status] ?? "")}</div>
+      <div class="row-right">${d.owner && d.owner !== "unassigned" ? chip(d.owner) : ""}</div>
     </button>`)).join("");
 }
 
@@ -674,7 +672,7 @@ document.addEventListener("click", (e) => {
   if (d.dataset) {
     const x = find("datasets", d.dataset);
     return viewModal({ title: x.title, body: x.body, link: x.url, accent: false, edit: { collection: "datasets", item: x },
-      facts: `${chip(x.category)}${chip(x.version)}${x.poland_coverage ? chip("Poland: " + x.poland_coverage) : ""}${chip((x.status || "not-started").replace("-", " "), DATASET_STATUS[x.status] ?? "")}${x.owner ? chip(x.owner, "slate") : ""}` });
+      facts: `${chip(x.category)}${chip(x.version)}${x.poland_coverage ? chip("Poland: " + x.poland_coverage) : ""}${x.owner ? chip(x.owner, "slate") : ""}` });
   }
   if (d.note) {
     const n = find("notes", d.note);
