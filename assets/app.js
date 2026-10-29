@@ -499,7 +499,7 @@ function viewDatasets() {
   const add = addBtn("datasets", "+ Add dataset");
   const head = pageHead("Data catalog", "Data", "", SITE.datasets.length ? add : "") + `
     <a class="card data-drive" href="${DATA_DRIVE_URL}" target="_blank" rel="noopener">
-      <div><b>All our data in one folder</b><span>Every dataset below, downloaded and cleaned, on Google Drive. Team only: you need to be invited.</span></div>
+      <div><b>All our data in one folder</b><span>Every dataset below, downloaded and cleaned, on Google Drive.</span></div>
       <span class="btn primary">Open folder ↗</span>
     </a>`;
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
