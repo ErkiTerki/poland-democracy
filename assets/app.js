@@ -16,6 +16,8 @@ const STATUS = {
   doing: { label: "Doing", color: "var(--red)" },
   done: { label: "Done", color: "var(--green)" },
 };
+// The three groups the challenge brief uses for its data list, plus a catch-all.
+const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust", "Other"];
 const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
 
 // ---------- form definitions (one per content collection) ----------
@@ -49,10 +51,11 @@ const FORMS = {
     ],
   },
   datasets: {
-    noun: "dataset", dir: "content/datasets", order: ["title", "url"],
+    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url"],
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
+      { k: "category", label: "Category", type: "select", def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
       { k: "url", label: "Where to download it", type: "url", ph: "https://…" },
       { k: "body", label: "Short description (one or two sentences)", type: "textarea", rows: 3, ph: "What's in it, in plain words." },
     ],
@@ -500,7 +503,9 @@ function viewDatasets() {
   const add = addBtn("datasets", "+ Add dataset");
   const head = pageHead("Data catalog", "Data", "", SITE.datasets.length ? add : "");
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
-  return head + `<div class="card drows">${[...SITE.datasets].sort((a, b) => a.title.localeCompare(b.title)).map((d) => `
+  const catOf = (d) => (CATEGORIES.includes(d.category) ? d.category : "Other");
+  return head + CATEGORIES.filter((c) => SITE.datasets.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
+  <div class="card drows">${SITE.datasets.filter((d) => catOf(d) === c).sort((a, b) => a.title.localeCompare(b.title)).map((d) => `
     <details class="drow">
       <summary><span class="drow-title">${esc(d.title)}</span><span class="drow-chev" aria-hidden="true"></span></summary>
       <div class="drow-body">
@@ -510,7 +515,7 @@ function viewDatasets() {
           <button class="btn ghost" data-edit="datasets" data-id="${esc(d.id)}">Edit</button>
         </div>
       </div>
-    </details>`).join("")}</div>`;
+    </details>`).join("")}</div>`).join("");
 }
 
 function viewPapers() {
