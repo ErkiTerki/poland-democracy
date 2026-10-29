@@ -1,9 +1,5 @@
 ---
-title: World Values Survey (WVS) / EVS
-category: Attitudes & trust
-url: https://www.worldvaluessurvey.org/
-version: 
-poland_coverage: Several waves
-owner: unassigned
+title: World Values Survey (WVS)
+url: https://www.worldvaluessurvey.org/WVSContents.jsp
 ---
-**What it measures:** Attitudes towards democracy and institutions, with global coverage. Useful for placing Poland in a wider comparison. Same rule as ESS: no raw microdata in the repo.
+A worldwide survey of people's values and views on democracy, so Poland can be compared beyond Europe. Free registration needed. Don't upload the files to the repo.

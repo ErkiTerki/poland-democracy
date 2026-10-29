@@ -447,3 +447,16 @@ nav a.nav-guide.active { background: var(--red); color: #fff; }
 .g-h::before { content: ""; width: 6px; height: 1.1em; border-radius: 3px; background: var(--red); }
 .g-card { border-left: 3px solid var(--red); }
 .hero-edit { margin: 14px 0 0 -12px; }
+
+/* ---------- data: one row per dataset, click to expand ---------- */
+.drows { overflow: hidden; }
+.drow + .drow { border-top: 1px solid var(--border); }
+.drow summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 20px; font-weight: 600; transition: background .15s; }
+.drow summary::-webkit-details-marker { display: none; }
+.drow summary:hover { background: var(--red-wash); }
+.drow-chev { width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin-top: -4px; transition: transform .2s; flex: none; }
+.drow[open] .drow-chev { transform: rotate(-135deg); margin-top: 4px; border-color: var(--red); }
+.drow[open] summary { color: var(--red-ink); }
+.drow-body { padding: 0 20px 18px; color: var(--text-2); }
+.drow-body .prose p { margin: 0 0 12px; }
+.drow-actions { display: flex; gap: 8px; align-items: center; }

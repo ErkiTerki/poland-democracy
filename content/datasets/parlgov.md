@@ -1,9 +1,5 @@
 ---
 title: ParlGov
-category: Parties & elections
-url: https://www.parlgov.org/
-version: 
-poland_coverage: Elections and cabinets since 1991
-owner: unassigned
+url: https://www.parlgov.org/data-info/
 ---
-**What it measures:** Parties, election results and cabinets for EU/OECD democracies. Its party IDs let us join vote shares to PopuList, CHES and the Manifesto Project.
+Parties, election results and governments for European democracies. Handy for linking parties across the other datasets.

@@ -1,9 +1,5 @@
 ---
 title: Eurobarometer
-category: Attitudes & trust
-url: https://europa.eu/eurobarometer/
-version: 
-poland_coverage: 2004– (EU member)
-owner: unassigned
+url: https://www.gesis.org/en/eurobarometer-data-service
 ---
-**What it measures:** Regular EU public-opinion surveys, including trust in national and EU institutions. Twice-yearly waves give finer time resolution around the 2023 election than ESS.
+The EU's own opinion polls, run twice a year, including trust in national and EU institutions. Data downloads via GESIS. Don't upload the files to the repo.

@@ -1,11 +1,5 @@
 ---
 title: European Social Survey (ESS)
-category: Attitudes & trust
-url: https://www.europeansocialsurvey.org/
-version: 
-poland_coverage: Poland in most rounds (2002– ); check round 11
-owner: unassigned
+url: https://ess.sikt.no/
 ---
-**What it measures:** Individual-level survey data on trust in parliament, politicians, the legal system and parties, satisfaction with democracy, and vote choice. **The right source for any claim about individuals.**
-
-**Rules:** Registration required. **Don't commit raw microdata to this public repo** (put it in `data/raw/`, which is gitignored). Commit only aggregated tables. Use the survey weights.
+A survey of individuals across Europe: trust in parliament and courts, satisfaction with democracy, and who they voted for. Free registration needed. Don't upload the files to the repo.

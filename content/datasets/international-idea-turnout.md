@@ -1,11 +1,5 @@
 ---
-title: International IDEA — Voter Turnout Database
-category: Elections & turnout
+title: International IDEA: Voter Turnout
 url: https://www.idea.int/data-tools/data/voter-turnout-database
-version: 
-poland_coverage: Elections since 1989
-owner: unassigned
 ---
-**What it measures:** Turnout by country and election since 1945, both as % of registered voters and as % of the voting-age population.
-
-**Caveats:** Say which denominator we use. 2023 Polish turnout (~74%) was a post-1989 record.
+Turnout for every national election since 1945, by country. Shows how many Poles voted in each election.

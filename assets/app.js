@@ -17,7 +17,6 @@ const STATUS = {
   done: { label: "Done", color: "var(--green)" },
 };
 const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
-const CATEGORIES = ["Measuring democracy", "Elections & turnout", "Parties & elections", "Attitudes & trust", "Other"];
 
 // ---------- form definitions (one per content collection) ----------
 const slug = (s) => String(s || "").toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -50,16 +49,12 @@ const FORMS = {
     ],
   },
   datasets: {
-    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url", "version", "poland_coverage", "owner"],
+    noun: "dataset", dir: "content/datasets", order: ["title", "url"],
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
-      { k: "category", label: "Category", type: "select", def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
-      { k: "url", label: "Link", type: "url", ph: "https://…" },
-      { k: "version", label: "Version used", type: "text", half: true, ph: "e.g. v16 (2026)" },
-      { k: "poland_coverage", label: "Poland coverage", type: "text", half: true, ph: "e.g. 1991–2025" },
-      { k: "owner", label: "Owner", type: "text", half: true, list: "owners" },
-      { k: "body", label: "Notes", type: "textarea", ph: "What it measures, who produces it, caveats…" },
+      { k: "url", label: "Where to download it", type: "url", ph: "https://…" },
+      { k: "body", label: "Short description (one or two sentences)", type: "textarea", rows: 3, ph: "What's in it, in plain words." },
     ],
   },
   papers: {
@@ -236,7 +231,7 @@ async function openForm(collection, id, defaults = {}) {
       current = r.item; sha = r.sha;
     } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
   }
-  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.datasets.map((d) => d.owner), ...SITE.notes.map((n) => n.author), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
+  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
     if (current) return current[f.k];
     if (f.k in defaults) return defaults[f.k];
@@ -505,14 +500,17 @@ function viewDatasets() {
   const add = addBtn("datasets", "+ Add dataset");
   const head = pageHead("Data catalog", "Data", "", SITE.datasets.length ? add : "");
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
-  const rank = (c) => (CATEGORIES.indexOf(c) + 1 || 99);
-  const cats = [...new Set(SITE.datasets.map((d) => d.category || "Other"))].sort((a, b) => rank(a) - rank(b));
-  return head + cats.map((c) => `<div class="group-title">${esc(c)}</div>` + rowsHtml(
-    SITE.datasets.filter((d) => (d.category || "Other") === c).sort((a, b) => a.title.localeCompare(b.title)),
-    (d) => `<button class="row" data-dataset="${esc(d.id)}">
-      <div><div class="row-title">${esc(d.title)}</div><div class="row-sub">${esc([d.poland_coverage && "Poland: " + d.poland_coverage, d.version].filter(Boolean).join(" · ") || "No details yet")}</div></div>
-      <div class="row-right">${d.owner && d.owner !== "unassigned" ? chip(d.owner) : ""}</div>
-    </button>`)).join("");
+  return head + `<div class="card drows">${[...SITE.datasets].sort((a, b) => a.title.localeCompare(b.title)).map((d) => `
+    <details class="drow">
+      <summary><span class="drow-title">${esc(d.title)}</span><span class="drow-chev" aria-hidden="true"></span></summary>
+      <div class="drow-body">
+        ${d.body ? `<div class="prose">${md(d.body)}</div>` : '<p class="muted">No description yet.</p>'}
+        <div class="drow-actions">
+          ${d.url ? `<a class="btn primary" href="${esc(d.url)}" target="_blank" rel="noopener">Download ↗</a>` : ""}
+          <button class="btn ghost" data-edit="datasets" data-id="${esc(d.id)}">Edit</button>
+        </div>
+      </div>
+    </details>`).join("")}</div>`;
 }
 
 function viewPapers() {
@@ -602,7 +600,7 @@ function viewGuide() {
         <div><h3>✅ Add a task</h3><p>Tasks → <b>+ Add task</b>. Put your name as owner and pick a due date.</p></div>
         <div><h3>➡️ Move a task</h3><p>Click the task → <b>Move to Doing</b> or <b>✓ Mark done</b>.</p></div>
         <div><h3>✏️ Change or delete</h3><p>Click anything → <b>Edit</b>. To delete, use <b>Delete</b> in the edit form (click it twice).</p></div>
-        <div><h3>📊 Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Always write which <b>version</b> you used.</p></div>
+        <div><h3>📊 Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Add a link and a one-line description. Click any dataset to see it.</p></div>
         <div><h3>📝 Write a note</h3><p>Notes → <b>+ New note</b>. Give it a headline. The date it was last saved is added for you.</p></div>
         <div><h3>📚 Add a paper</h3><p>Literature → <b>+ Add paper</b>. Only mark it <b>Summarised</b> once someone has actually read it.</p></div>
       </div>
@@ -637,7 +635,7 @@ function render() {
 document.addEventListener("click", (e) => {
   const jump = e.target.closest('a[href^="#g-"]');
   if (jump) { e.preventDefault(); document.querySelector(jump.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); return; }
-  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-dataset],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -668,11 +666,6 @@ document.addEventListener("click", (e) => {
     const moves = Object.keys(STATUS).filter((k) => k !== s).map((k) => `<button class="btn" data-status="${k}" data-id="${esc(t.id)}">${k === "done" ? "✓ Mark done" : "Move to " + STATUS[k].label}</button>`).join("");
     return viewModal({ title: t.title, body: t.body, accent: s === "doing", actions: moves, edit: { collection: "tasks", item: t },
       facts: `${chip(STATUS[s].label, s === "done" ? "green" : s === "doing" ? "red" : "")}${chip(t.owner || "Unassigned", "slate")}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}` });
-  }
-  if (d.dataset) {
-    const x = find("datasets", d.dataset);
-    return viewModal({ title: x.title, body: x.body, link: x.url, accent: false, edit: { collection: "datasets", item: x },
-      facts: `${chip(x.category)}${chip(x.version)}${x.poland_coverage ? chip("Poland: " + x.poland_coverage) : ""}${x.owner ? chip(x.owner, "slate") : ""}` });
   }
   if (d.note) {
     const n = find("notes", d.note);
