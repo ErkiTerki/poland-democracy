@@ -93,7 +93,6 @@ const FORMS = {
     fields: [
       { k: "title", label: "Title", type: "text", req: true },
       { k: "question", label: "Research question", type: "textarea", rows: 3 },
-      { k: "body", label: "Sections (Markdown — each “## Heading” becomes a card)", type: "textarea", rows: 14 },
     ],
   },
 };
@@ -424,7 +423,6 @@ function viewOverview() {
   const openTasks = SITE.tasks.filter((t) => t.status !== "done").length;
   const summarised = SITE.papers.filter((p) => p.status === "summarised").length;
   const title = esc(o.title || "Overview").replace("U-turn", "<em>U‑turn</em>");
-  const sections = (o.body || "").split(/^(?=## )/m).filter((s) => s.trim());
   if (view.calY === null) { const t = new Date(); view.calY = t.getFullYear(); view.calM = t.getMonth(); }
 
   return `
@@ -433,6 +431,7 @@ function viewOverview() {
         <div class="eyebrow">Democracy, Political Trust &amp; Radical Voting · Open Data University</div>
         <h1>${title}</h1>
         ${o.question ? `<p class="question">${esc(o.question)}</p>` : ""}
+        <button class="btn ghost hero-edit" data-edit="overview" data-id="overview">Edit</button>
       </div>
       <aside class="hero-side">
         ${nextBoard ? `
@@ -458,10 +457,7 @@ function viewOverview() {
       <div class="card cal" id="cal">${calendarHtml()}</div>
       <div class="card upcoming">${upcomingHtml()}</div>
     </div>
-
-    ${sections.length ? `<div class="section-head"><h2 class="section-title">The project</h2>
-      <button class="btn ghost" data-edit="overview" data-id="overview">Edit</button></div>
-    <div class="brief">${sections.map((s) => `<section class="card prose">${md(s)}</section>`).join("")}</div>` : ""}`;
+`;
 }
 
 function pageHead(eyebrow, title, sub, action) {
@@ -577,7 +573,11 @@ const AGENT_PROMPT = `Please set me up with my team's shared project hub. Read $
 function viewGuide() {
   const step = (n, title, body) => `<li class="g-step"><span class="g-num">${n}</span><div><h3>${title}</h3>${body}</div></li>`;
   return `
-    ${pageHead("How it works", "Using the hub", "Our team's shared to-do list, calendar, data catalog and reading list. Everyone sees the same thing, and anyone on the team can change it.")}
+    <section class="g-hero">
+      <div class="eyebrow">How it works</div>
+      <h1>Using the hub</h1>
+      <p>Our team's shared to-do list, calendar, data catalog, reading list and notebook. Everyone sees the same thing, and anyone on the team can change it.</p>
+    </section>
 
     <div class="g-paths">
       <a class="card g-path" href="#g-site"><span class="g-ico">💻</span><b>Edit on the website</b><span>Click, type, save. Set it up once in about 2 minutes.</span></a>
@@ -623,16 +623,6 @@ function viewGuide() {
           <li>"Mark my V-Dem task as done."</li></ul>`)}
       </ol>
       <p class="g-alt">Prefer a file? <a href="AGENT_SETUP.md" download>Download AGENT_SETUP.md</a> and hand it to your agent.</p>
-    </div>
-
-    <h2 class="section-title g-h">If something goes wrong</h2>
-    <div class="card g-card g-faq">
-      <details><summary>I saved something but my teammate can't see it</summary><p>The site needs about a minute to update for everyone. Ask them to refresh the page.</p></details>
-      <details><summary>"Your token was rejected"</summary><p>It has probably expired. Make a new one (step 3 above) and connect again.</p></details>
-      <details><summary>"Can't write to the repo"</summary><p>You haven't accepted Erik's invite yet (step 2), or the token is missing the <code>public_repo</code> tick. Use the link in step 3, which ticks it for you.</p></details>
-      <details><summary>"Someone changed this at the same time"</summary><p>Two people edited the same thing at once. Refresh the page and make your change again. Nothing was lost.</p></details>
-      <details><summary>I'm on a shared or library computer</summary><p>Click your name at the top right → <b>Disconnect this browser</b> when you're done. The token is saved in the browser you connected from.</p></details>
-      <details><summary>What's actually happening behind the scenes?</summary><p>Everything lives as small text files in our <a href="https://github.com/ErkiTerki/poland-democracy" target="_blank" rel="noopener">GitHub repo</a>. Saving on the site creates a commit under your name, so we can always see who changed what and undo mistakes. The website rebuilds itself after every change.</p></details>
     </div>`;
 }
 

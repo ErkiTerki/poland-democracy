@@ -259,11 +259,6 @@ nav a.active { background: var(--surface); color: var(--text); box-shadow: var(-
 .upcoming .btn { margin-top: auto; justify-content: center; }
 .upcoming .up-list + .btn { margin-top: 14px; }
 
-/* ---------- brief ---------- */
-.brief { display: grid; gap: 16px; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .brief { grid-template-columns: 1fr 1fr; } }
-.brief > section { padding: 24px 26px; }
-
 /* ---------- tasks ---------- */
 .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
 .seg { display: inline-flex; background: var(--surface-2); padding: 3px; border-radius: 10px; gap: 2px; flex-wrap: wrap; }
@@ -415,8 +410,7 @@ dialog[open] { animation: pop .16s ease-out; }
 .g-step p, .g-step ul { margin: 0; color: var(--text-2); }
 .g-step ul { padding-left: 1.1em; margin-top: 6px; }
 .g-step li { margin-bottom: 4px; }
-.g-step code, .g-faq code { font-size: 0.85em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
-.inline-btn { padding: 4px 10px; font-size: 0.85rem; vertical-align: baseline; }
+.g-step code, .inline-btn { padding: 4px 10px; font-size: 0.85rem; vertical-align: baseline; }
 .g-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 900px) { .g-how { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 560px) { .g-how { grid-template-columns: 1fr; } }
@@ -428,14 +422,6 @@ dialog[open] { animation: pop .16s ease-out; }
 .g-examples { list-style: none; padding: 0 !important; }
 .g-examples li { background: var(--surface-2); border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-style: italic; }
 .g-alt { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-2); font-size: 0.92rem; }
-.g-faq { padding: 6px 26px; }
-.g-faq details { border-bottom: 1px solid var(--border); }
-.g-faq details:last-child { border-bottom: 0; }
-.g-faq summary { padding: 15px 0; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
-.g-faq summary::after { content: "+"; color: var(--red); font-size: 1.2rem; line-height: 1; }
-.g-faq details[open] summary::after { content: "–"; }
-.g-faq summary::-webkit-details-marker { display: none; }
-.g-faq details p { margin: -4px 0 16px; color: var(--text-2); }
 .inline-btn .auth-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--red); margin-right: 2px; }
 
 /* ---------- notes ---------- */
@@ -447,3 +433,17 @@ dialog[open] { animation: pop .16s ease-out; }
 .note-meta { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--muted); flex-wrap: wrap; }
 .note-by { font-weight: 600; color: var(--text); }
 .note-saved { margin-left: auto; }
+
+/* guide looks different from the content tabs: red header, red accents */
+nav a.nav-guide { color: var(--red-ink); }
+nav a.nav-guide.active { background: var(--red); color: #fff; }
+.g-hero { position: relative; overflow: hidden; background: var(--red); color: #fff; border-radius: 20px; padding: 34px 30px 32px; margin: 28px 0 18px; box-shadow: var(--shadow); }
+.g-hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: rgba(255,255,255,0.08); }
+.g-hero .eyebrow { color: rgba(255,255,255,0.85); }
+.g-hero h1 { font-family: var(--serif); font-weight: 700; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; margin: 6px 0 12px; }
+.g-hero p { margin: 0; max-width: 60ch; font-size: 1.02rem; color: rgba(255,255,255,0.92); }
+.g-path { border-top: 3px solid var(--red); }
+.g-h { display: flex; align-items: center; gap: 10px; }
+.g-h::before { content: ""; width: 6px; height: 1.1em; border-radius: 3px; background: var(--red); }
+.g-card { border-left: 3px solid var(--red); }
+.hero-edit { margin: 14px 0 0 -12px; }

@@ -31,7 +31,7 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 | papers | `author-year-keyword.md` | title, authors, year, url, status (`to-read`/`reading`/`summarised`), reader, tags (comma list) |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
 
-The overview page text lives in `content/overview.md`: a `question:` field plus `## ` sections, one card each.
+The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
 Events appear on the Overview calendar. `board` events also drive the countdown.
 
 Notes belong to whoever wrote them: don't edit a teammate's note unless they ask. Notes are public too, so no personal
