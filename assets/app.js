@@ -501,7 +501,11 @@ const rowsHtml = (items, rowFn) => `<div class="card rows">${items.map(rowFn).jo
 
 function viewDatasets() {
   const add = addBtn("datasets", "+ Add dataset");
-  const head = pageHead("Data catalog", "Data", "", SITE.datasets.length ? add : "");
+  const head = pageHead("Data catalog", "Data", "", SITE.datasets.length ? add : "") + `
+    <a class="card data-drive" href="${DATA_DRIVE_URL}" target="_blank" rel="noopener">
+      <div><b>All our data in one folder</b><span>Every dataset below, downloaded and cleaned, on Google Drive. Team only: you need to be invited.</span></div>
+      <span class="btn primary">Open folder ↗</span>
+    </a>`;
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
   const catOf = (d) => (CATEGORIES.includes(d.category) ? d.category : "Other");
   return head + CATEGORIES.filter((c) => SITE.datasets.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
@@ -568,6 +572,8 @@ function viewNotes() {
     </button>`).join("")}</div>`;
 }
 
+// Shared Google Drive folder with all downloaded + cleaned data (access: invited teammates only).
+const DATA_DRIVE_URL = "https://drive.google.com/drive/folders/1D73e04DwqlUc9RZlXp4l5BQ_n7mzED1f?usp=drive_link";
 const SITE_URL = "https://erkiterki.github.io/poland-democracy/";
 const AGENT_PROMPT = `Please set me up with my team's shared project hub. Read ${SITE_URL}AGENT_SETUP.md and follow every step in it.`;
 

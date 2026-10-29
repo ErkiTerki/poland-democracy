@@ -453,3 +453,10 @@ nav a.nav-guide.active { background: var(--red); color: #fff; }
 .drow-body { padding: 0 20px 18px; color: var(--text-2); }
 .drow-body .prose p { margin: 0 0 12px; }
 .drow-actions { display: flex; gap: 8px; align-items: center; }
+
+.data-drive { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; margin-bottom: 26px; border-left: 4px solid var(--red); text-decoration: none; color: inherit; transition: transform .15s; }
+.data-drive:hover { transform: translateY(-1px); }
+.data-drive b { display: block; font-family: var(--serif); font-size: 1.1rem; font-weight: 600; margin-bottom: 2px; }
+.data-drive div span { color: var(--text-2); font-size: 0.92rem; }
+.data-drive .btn { flex: none; }
+@media (max-width: 560px) { .data-drive { flex-direction: column; align-items: flex-start; } }
