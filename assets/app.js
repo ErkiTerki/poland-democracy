@@ -503,7 +503,7 @@ const rowsHtml = (items, rowFn) => `<div class="card rows">${items.map(rowFn).jo
 
 function viewDatasets() {
   const add = addBtn("datasets", "+ Add dataset");
-  const head = pageHead("Data catalog", "Data", "Every source we use or considered. Always record the version, since the brief asks us to cite it.", SITE.datasets.length ? add : "");
+  const head = pageHead("Data catalog", "Data", "", SITE.datasets.length ? add : "");
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
   const rank = (c) => (CATEGORIES.indexOf(c) + 1 || 99);
   const cats = [...new Set(SITE.datasets.map((d) => d.category || "Other"))].sort((a, b) => rank(a) - rank(b));
