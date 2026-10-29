@@ -217,24 +217,32 @@ nav a.active { background: var(--surface); color: var(--text); box-shadow: var(-
 .cal-day:hover .add, .cal-day .add:focus { opacity: 1; }
 .cal-day .add:hover { background: var(--surface); color: var(--red-ink); }
 .ev {
-  display: block; width: 100%; text-align: left; border: 0; cursor: pointer; font: 500 0.74rem/1.3 var(--sans);
-  padding: 3px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: var(--surface); color: var(--text); border-left: 3px solid var(--muted);
+  --c: var(--text-2);
+  display: block; width: 100%; text-align: left; border: 0; cursor: pointer; font: 600 0.76rem/1.3 var(--sans);
+  padding: 4px 7px; border-radius: 6px; overflow-wrap: anywhere;
+  background: color-mix(in srgb, var(--c) 18%, var(--surface)); color: var(--text);
+  border-left: 4px solid var(--c); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: transform .12s, background .12s;
 }
-.ev:hover { filter: brightness(0.97); }
-.ev.board { background: var(--red); color: #fff; border-left-color: color-mix(in srgb, var(--red) 70%, #000); font-weight: 600; }
-.ev.deadline { background: var(--amber-soft); color: var(--amber); border-left-color: var(--amber); }
-.ev.meeting { background: var(--slate-soft); color: var(--slate); border-left-color: var(--slate); }
-.ev.team { background: transparent; color: var(--muted); border-left-color: var(--border-strong); font-weight: 400; }
-.ev.other { border-left-color: var(--text-2); }
+.ev:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--c) 28%, var(--surface)); }
+.ev-txt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ev .ev-time { color: var(--c); font-weight: 700; }
+.ev.board { --c: var(--red); background: var(--red); color: #fff; border-left-color: color-mix(in srgb, var(--red) 65%, #000); }
+.ev.board .ev-time { color: #fff; }
+.ev.board:hover { background: color-mix(in srgb, var(--red) 88%, #000); }
+.ev.deadline { --c: var(--amber); }
+.ev.meeting { --c: var(--slate); }
+.ev.team { --c: var(--green); }
+.ev.other { --c: var(--text-2); }
+.cal-day.has-ev:not(.out) { background: var(--surface); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.cal-day.has-ev:not(.out):hover { background: var(--red-wash); }
 .more { font-size: 0.72rem; color: var(--muted); padding-left: 6px; }
 @media (max-width: 640px) {
   .cal { padding: 12px; }
   .cal-grid { gap: 3px; }
   .cal-day { min-height: 58px; padding: 4px; align-items: center; }
   .cal-day .add { display: none; }
-  .ev { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; font-size: 0; display: inline-block; background: var(--text-2); }
-  .ev.board { background: var(--red); } .ev.deadline { background: var(--amber); } .ev.meeting { background: var(--slate); } .ev.team { background: var(--border-strong); }
+  .ev, .ev.board { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; font-size: 0; display: inline-block; background: var(--c); box-shadow: none; }
   .day-evs { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; }
   .more { display: none; }
 }

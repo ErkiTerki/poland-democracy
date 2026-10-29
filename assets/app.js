@@ -361,11 +361,11 @@ function calendarHtml() {
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const day = iso(d);
     const list = evs.filter((e) => e.on === day);
-    const cls = ["cal-day", d.getMonth() !== view.calM && "out", day === today && "today", d.getDay() % 6 === 0 && "weekend"].filter(Boolean).join(" ");
+    const cls = ["cal-day", d.getMonth() !== view.calM && "out", day === today && "today", d.getDay() % 6 === 0 && "weekend", list.length && "has-ev"].filter(Boolean).join(" ");
     cells += `<div class="${cls}" data-add="events" data-date="${day}" title="Add event on ${fmtDate(day)}">
       <span class="num">${d.getDate()}</span>
       <span class="add" aria-hidden="true">+</span>
-      <div class="day-evs">${list.slice(0, 3).map((e) => `<button class="ev ${esc(EVENT_TYPES[e.type] ? e.type : "other")}" data-ev="${esc(e.id)}" data-on="${day}" title="${esc(e.title)}">${e.time ? esc(e.time) + " " : ""}${esc(e.title)}</button>`).join("")}</div>
+      <div class="day-evs">${list.slice(0, 3).map((e) => `<button class="ev ${esc(EVENT_TYPES[e.type] ? e.type : "other")}" data-ev="${esc(e.id)}" data-on="${day}" title="${esc((e.time ? e.time + " " : "") + e.title)}"><span class="ev-txt">${e.time ? `<span class="ev-time">${esc(e.time)}</span> ` : ""}${esc(e.title)}</span></button>`).join("")}</div>
       ${list.length > 3 ? `<span class="more">+${list.length - 3} more</span>` : ""}
     </div>`;
   }
@@ -383,7 +383,7 @@ function calendarHtml() {
       <span><i style="background:var(--red)"></i>Board</span>
       <span><i style="background:var(--amber)"></i>Deadline</span>
       <span><i style="background:var(--slate)"></i>Meeting</span>
-      <span><i style="background:var(--border-strong)"></i>Team</span>
+      <span><i style="background:var(--green)"></i>Team</span>
     </div>`;
 }
 
