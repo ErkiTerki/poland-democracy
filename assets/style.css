@@ -410,12 +410,6 @@ dialog[open] { animation: pop .16s ease-out; }
 .g-step ul { padding-left: 1.1em; margin-top: 6px; }
 .g-step li { margin-bottom: 4px; }
 .g-step code, .inline-btn { padding: 4px 10px; font-size: 0.85rem; vertical-align: baseline; }
-.g-how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 900px) { .g-how { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .g-how { grid-template-columns: 1fr; } }
-.g-how > div { background: var(--surface-2); border-radius: 12px; padding: 14px 16px; }
-.g-how h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
-.g-how p { margin: 0; color: var(--text-2); font-size: 0.9rem; }
 .g-prompt { display: flex; gap: 10px; align-items: stretch; margin-top: 8px; flex-wrap: wrap; }
 .g-prompt code { flex: 1 1 260px; display: block; background: var(--page); border: 1px solid var(--border-strong); border-radius: 10px; padding: 11px 13px; font-size: 0.86rem; line-height: 1.5; color: var(--text); user-select: all; }
 .g-examples { list-style: none; padding: 0 !important; }

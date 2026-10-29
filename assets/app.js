@@ -598,19 +598,6 @@ function viewGuide() {
       </ol>
     </div>
 
-    <div class="card g-card">
-      <div class="g-sub">Everyday use</div>
-      <div class="g-how">
-        <div><h3>Add an event</h3><p>Overview → <b>click a day</b> in the calendar → fill in the form → <b>Add event</b>.</p></div>
-        <div><h3>Add a task</h3><p>Tasks → <b>+ Add task</b>. Put your name as owner and pick a due date.</p></div>
-        <div><h3>Move a task</h3><p>Click the task → <b>Move to Doing</b> or <b>✓ Mark done</b>.</p></div>
-        <div><h3>Change or delete</h3><p>Click anything → <b>Edit</b>. To delete, use <b>Delete</b> in the edit form (click it twice).</p></div>
-        <div><h3>Log a dataset</h3><p>Data → <b>+ Add dataset</b>. Add a link and a one-line description. Click any dataset to see it.</p></div>
-        <div><h3>Write a note</h3><p>Notes → <b>+ New note</b>. Give it a headline. The date it was last saved is added for you.</p></div>
-        <div><h3>Add a paper</h3><p>Literature → <b>+ Add paper</b>. Only mark it <b>Summarised</b> once someone has actually read it.</p></div>
-      </div>
-    </div>
-
     <h2 class="section-title g-h" id="g-agent">Let your AI agent do it</h2>
     <div class="card g-card">
       <p class="g-lead">If you use Claude Code (or another coding agent), it can set itself up and then do all the editing for you.</p>
