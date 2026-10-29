@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap">
+  <script>/* apply the saved theme before first paint, so there's no flash */
+    try { const t = localStorage.getItem("pdh-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <link rel="stylesheet" href="assets/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
@@ -29,7 +32,10 @@
         <a href="#notes">Notes</a>
         <a href="#guide" class="nav-guide"><span class="nav-long">How it works</span><span class="nav-short">Help</span></a>
       </nav>
-      <button class="auth-btn" id="auth-btn" type="button" aria-label="Connect to edit"></button>
+      <div class="top-actions">
+        <button class="theme-btn" id="theme-btn" type="button"></button>
+        <button class="auth-btn" id="auth-btn" type="button" aria-label="Connect to edit"></button>
+      </div>
     </div>
   </header>
 

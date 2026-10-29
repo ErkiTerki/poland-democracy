@@ -460,3 +460,9 @@ nav a.nav-guide.active { background: var(--red); color: #fff; }
 .data-drive div span { color: var(--text-2); font-size: 0.92rem; }
 .data-drive .btn { flex: none; }
 @media (max-width: 560px) { .data-drive { flex-direction: column; align-items: flex-start; } }
+
+/* ---------- theme toggle ---------- */
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.theme-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 999px; border: 1px solid var(--border-strong);
+  background: var(--surface); color: var(--text-2); cursor: pointer; transition: background .15s, color .15s; }
+.theme-btn:hover { background: var(--surface-2); color: var(--red); }
