@@ -33,29 +33,48 @@ const loadScript = (src) => new Promise((ok, fail) => {
   s.src = src; s.async = true; s.onload = ok; s.onerror = () => fail(new Error("Couldn't load Google's file picker. Check your connection."));
   document.head.appendChild(s);
 });
-let pickerLoaded = null, driveToken = null;
+let pickerLoaded = null, driveToken = null, tokenClient = null, pendingToken = null;
+// Load Google's scripts as soon as the page opens, so a click on "Choose from Drive" can open the sign-in
+// window straight away (browsers block pop-ups that open after a delay, which made the first click fail).
+function initDrive() {
+  if (!pickerOn()) return Promise.resolve();
+  pickerLoaded ||= Promise.all([loadScript("https://apis.google.com/js/api.js"), loadScript("https://accounts.google.com/gsi/client")])
+    .then(() => new Promise((ok) => gapi.load("picker", ok)))
+    .then(() => {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: DRIVE.clientId,
+        scope: "https://www.googleapis.com/auth/drive.file",
+        callback: (r) => {
+          const p = pendingToken; pendingToken = null;
+          if (!p) return;
+          if (r.error) return p.fail(new Error("Google sign-in didn't complete. Try again."));
+          driveToken = { value: r.access_token, exp: Date.now() + ((r.expires_in || 3600) - 60) * 1000 };
+          p.ok(r.access_token);
+        },
+        error_callback: (e) => {
+          const p = pendingToken; pendingToken = null;
+          if (p) p.fail(new Error(e?.type === "popup_failed_to_open"
+            ? "Your browser blocked Google's sign-in window. Allow pop-ups for this site, then click again."
+            : "Google sign-in was closed before finishing."));
+        },
+      });
+    })
+    .catch((e) => { pickerLoaded = null; throw e; });
+  return pickerLoaded;
+}
+// Must run synchronously inside the click, so the sign-in pop-up isn't blocked.
 function driveAccessToken() {
   if (driveToken && driveToken.exp > Date.now()) return Promise.resolve(driveToken.value);
-  return new Promise((ok, fail) => {
-    const client = google.accounts.oauth2.initTokenClient({
-      client_id: DRIVE.clientId,
-      scope: "https://www.googleapis.com/auth/drive.file",
-      callback: (r) => {
-        if (r.error) return fail(new Error("Google sign-in didn't complete."));
-        driveToken = { value: r.access_token, exp: Date.now() + ((r.expires_in || 3600) - 60) * 1000 };
-        ok(r.access_token);
-      },
-      error_callback: () => fail(new Error("Google sign-in was closed.")),
-    });
-    client.requestAccessToken({ prompt: "" });
-  });
+  if (!tokenClient) { initDrive().catch(() => {}); return Promise.reject(new Error("Google Drive is still loading. Click again in a second.")); }
+  const p = new Promise((ok, fail) => { pendingToken = { ok, fail }; });
+  tokenClient.requestAccessToken({ prompt: "" });
+  return p;
 }
 // Opens Google's picker on the team folder (browse or upload). Resolves to { url, name } or null if cancelled.
 async function pickFromDrive() {
-  pickerLoaded ||= Promise.all([loadScript("https://apis.google.com/js/api.js"), loadScript("https://accounts.google.com/gsi/client")])
-    .then(() => new Promise((ok) => gapi.load("picker", ok)));
-  await pickerLoaded;
   const token = await driveAccessToken();
+  await initDrive();
+  toast("Opening Google Drive… the first time can take a few seconds.");
   // Our form sits in a modal <dialog> (the browser's top layer), which would cover Google's picker:
   // lower it to a normal dialog while the picker is open, then put it back.
   const lowered = modal.open;
@@ -94,8 +113,15 @@ async function driveAction(btn) {
       const md = `[${name || "Attachment"}](${url})`;
       const at = target.selectionStart ?? target.value.length;
       target.value = target.value.slice(0, at) + (at && !/\s$/.test(target.value.slice(0, at)) ? "\n" : "") + md + target.value.slice(at);
-    } else target.value = url;
-    target.focus();
+      target.focus();
+    } else {
+      // Show the file's name under the field, and the start of the link, rather than focusing the field
+      // (a focused field gets the red outline, which looks like an error).
+      target.value = url;
+      target.scrollLeft = 0;
+      const hint = row.nextElementSibling;
+      if (hint?.classList.contains("drive-hint")) hint.innerHTML = `<span class="linked">✓ Linked${name ? `: <b>${esc(name)}</b>` : ""}</span>`;
+    }
     toast(`Linked${name ? ` <strong>${esc(name)}</strong>` : ""}.`);
   };
   const mode = btn.dataset.drive;
@@ -1028,6 +1054,7 @@ darkQuery.addEventListener("change", renderTheme);
 renderTheme();
 
 renderAuth();
+initDrive().catch(() => {}); // warm up the Drive picker (no-op until DRIVE keys are set)
 fetch("site.json", { cache: "no-store" })
   .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
   .then((data) => { SITE = Store.applyPending(data); render(); addEventListener("hashchange", () => { render(); scrollTo(0, 0); }); })

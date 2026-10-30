@@ -605,5 +605,7 @@ nav a.nav-guide.active { background: var(--red); color: #fff; }
 .paste-btn { font-size: 0.84rem; white-space: nowrap; }
 .drive-hint { font-size: 0.76rem; color: var(--muted); line-height: 1.4; }
 .drive-hint b { color: var(--text-2); font-weight: 600; }
-/* while Google's picker is open, the form dialog steps out of the top layer and stays visible underneath */
-dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; }
+.drive-hint .linked { color: #2e9d5b; }
+.drive-hint .linked b { color: inherit; }
+/* while Google's picker is open, the form dialog steps out of the top layer and is hidden (it comes back after) */
+dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; visibility: hidden; }
