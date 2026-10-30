@@ -17,6 +17,7 @@ const STATUS = {
   done: { label: "Done", color: "var(--green)" },
 };
 const isDone = (t) => t.status === "done";
+const hasOutput = (t) => !!t.output && t.output !== "none";
 // The brief's rule: keep description, prediction and causal claims apart.
 const FINDING_TYPES = {
   description: { label: "Description", chip: "slate", hint: "What the data shows happened." },
@@ -36,13 +37,17 @@ const FORMS = {
     noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due", "completed", "output"],
     base: (f) => slug(f.title),
     // `completed` = the day a task was ticked; it dates the entry on the Past work timeline.
-    stamp: (f) => { if (f.status === "done") f.completed = f.completed || todayIso(); else delete f.completed; },
+    // `output` = link to what a finished task produced, or "none". It only exists on done tasks.
+    stamp: (f) => {
+      if (f.status === "done") { f.completed = f.completed || todayIso(); f.output = f.output || "none"; }
+      else { delete f.completed; delete f.output; }
+    },
     fields: [
       { k: "title", label: "Task", type: "text", req: true, ph: "e.g. Pull V-Dem intervals for Poland" },
       { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["done", "Done"]] },
       { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
-      { k: "output", label: "Output: link to what this task produced (a note, a Drive file, a finding…)", type: "url", ph: "https://…" },
+      { k: "output", label: "Output: link to what this task produced (leave empty if there is none)", type: "url", ph: "https://… (a note, a Drive file, a finding, slides…)", showIf: "status", showIfValue: "done" },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
   },
@@ -238,10 +243,10 @@ function renderAuth() {
 
 // ---------- forms ----------
 function fieldHtml(f, val) {
-  const v = val ?? "";
+  const v = val === "none" && f.k === "output" ? "" : val ?? "";
   const cls = `field${f.half ? " half" : ""}${f.showIf ? " cond" : ""}`;
   const attrs = `name="${f.k}" ${f.req ? "required" : ""} ${f.ph ? `placeholder="${esc(f.ph)}"` : ""}`;
-  const dataIf = f.showIf ? ` data-if="${f.showIf}"` : "";
+  const dataIf = f.showIf ? ` data-if="${f.showIf}"${f.showIfValue ? ` data-if-val="${esc(f.showIfValue)}"` : ""}` : "";
   if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea></label>`;
   if (f.type === "select") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><select ${attrs}>${f.opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
   if (f.type === "checkbox") return `<label class="${cls} check"${dataIf}><input type="checkbox" name="${f.k}" ${v ? "checked" : ""}><span>${esc(f.label)}</span></label>`;
@@ -280,7 +285,8 @@ async function openForm(collection, id, defaults = {}) {
       </div>
     </form>`);
   const form = document.getElementById("item-form");
-  const syncCond = () => form.querySelectorAll("[data-if]").forEach((el) => { el.hidden = !form.elements[el.dataset.if].checked; });
+  const condOn = (name, val) => { const c = form.elements[name]; return val ? c.value === val : c.checked; };
+  const syncCond = () => form.querySelectorAll("[data-if]").forEach((el) => { el.hidden = !condOn(el.dataset.if, el.dataset.ifVal); });
   form.addEventListener("change", syncCond); syncCond();
   form.querySelector("input, textarea")?.focus();
 
@@ -294,7 +300,7 @@ async function openForm(collection, id, defaults = {}) {
     for (const f of spec.fields) {
       const el = form.elements[f.k];
       let v = f.type === "checkbox" ? (el.checked ? f.value : "") : el.value.trim();
-      if (f.showIf && !form.elements[f.showIf].checked) v = "";
+      if (f.showIf && !condOn(f.showIf, f.showIfValue)) v = "";
       if (v === "" && f.k !== "body") delete fields[f.k]; else fields[f.k] = v;
     }
     delete fields.id; delete fields.path;
@@ -328,7 +334,7 @@ async function openForm(collection, id, defaults = {}) {
   });
 }
 
-async function quickStatus(id, status) {
+async function quickStatus(id, status, output) {
   const t = find("tasks", id);
   if (!t) return;
   const busy = document.querySelector(`[data-tick="${CSS.escape(id)}"]`);
@@ -338,15 +344,51 @@ async function quickStatus(id, status) {
     if (!r) return toast("That task no longer exists.", "err");
     const fields = { ...r.item, status };
     delete fields.id; delete fields.path;
+    if (status === "done") fields.output = output || "none";
     FORMS.tasks.stamp(fields);
     const text = Store.serialize(fields, FORMS.tasks.order);
     await Store.write(t.path, text, `tasks: "${fields.title}" → ${status} (via site, @${Store.auth.login})`, r.sha);
     applyLocal("tasks", t.path, Store.parse(text, t.path));
     if (modal.open) modal.close();
     const undo = `<button class="toast-undo" data-status="${status === "done" ? "todo" : "done"}" data-id="${esc(id)}">Undo</button>`;
-    const addOut = status === "done" && !fields.output ? `<button class="toast-undo" data-edit="tasks" data-id="${esc(id)}">Add output link</button>` : "";
-    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work. ${undo}${addOut}` : `Back on the to-do list. ${undo}`);
+    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work${hasOutput(fields) ? ", with its output" : ""}. ${undo}` : `Back on the to-do list. ${undo}`);
   } catch (err) { if (busy) busy.classList.remove("busy"); toast(esc(err.message), "err"); }
+}
+
+// Ticking a task asks for its output before it moves to Past work.
+function tickDialog(id) {
+  const t = find("tasks", id);
+  if (!t) return;
+  showModal(`
+    <div class="modal-top"></div>
+    <h2 class="modal-title" id="modal-title">Mark as done</h2>
+    <p class="tick-task">${esc(t.title)}</p>
+    <form class="form" id="tick-form" autocomplete="off">
+      <p class="tick-q"><strong>Did this task produce something we can link to?</strong><br>
+        <span class="muted">A note on the hub, a Drive file, a finding, slides… It's shown next to the task on Past work, so anyone (Valentin included) can see what it delivered.</span></p>
+      <label class="field"><span>Link to the output</span><input type="url" name="output" placeholder="https://…"></label>
+      <p class="form-error" hidden></p>
+      <div class="tick-actions">
+        <button class="btn primary" type="submit">✓ Add link and mark done</button>
+        <button class="btn" type="button" data-nooutput>No output to link: mark done</button>
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>`);
+  const form = document.getElementById("tick-form");
+  const err = form.querySelector(".form-error");
+  const finish = async (output, btn) => {
+    form.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    btn.textContent = "Saving…";
+    await quickStatus(id, "done", output);
+  };
+  form.querySelector("input").focus();
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const url = form.elements.output.value.trim();
+    if (!url) { err.hidden = false; err.textContent = "Paste a link, or choose \"No output to link\"."; return; }
+    finish(url, form.querySelector("[type=submit]"));
+  });
+  form.querySelector("[data-nooutput]").addEventListener("click", (e) => finish("", e.currentTarget));
 }
 
 function applyLocal(collection, path, item) {
@@ -540,7 +582,7 @@ function taskCard(t, groupDate) {
     <div class="task-main">
       ${team ? '<div class="umbrella-tag">Shared goal for this round</div>' : ""}
       <div class="task-title">${esc(t.title || t.id)}</div>
-      <div class="task-meta">${team ? "" : who(t.owner)}${showDue ? chip((late ? "Overdue · " : "Due ") + fmtDate(t.due, { day: "numeric", month: "short" }), late ? "red" : "") : ""}${t.body ? '<span class="has-notes" title="Has details">Details</span>' : ""}${t.output ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : ""}</div>
+      <div class="task-meta">${team ? "" : who(t.owner)}${showDue ? chip((late ? "Overdue · " : "Due ") + fmtDate(t.due, { day: "numeric", month: "short" }), late ? "red" : "") : ""}${t.body ? '<span class="has-notes" title="Has details">Details</span>' : ""}</div>
     </div>
   </div>`;
 }
@@ -589,7 +631,7 @@ function viewPast() {
       <span class="past-check" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
       <span class="past-title">${isTeam(t.owner) ? '<span class="umbrella-tag">Shared goal</span>' : ""}${esc(t.title || t.id)}</span>
       <span class="past-who">${who(t.owner)}</span>
-      <span class="past-out">${t.output ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : `<button class="add-out" data-edit="tasks" data-id="${esc(t.id)}" title="Link what this task produced">+ Output</button>`}</span>
+      <span class="past-out">${hasOutput(t) ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : t.output === "none" ? '<span class="no-out">No output</span>' : `<button class="add-out" data-edit="tasks" data-id="${esc(t.id)}" title="Link what this task produced">+ Output</button>`}</span>
       <span class="past-when">${t.completed ? "Done " + fmtDate(t.completed, { day: "numeric", month: "short" }) : ""}</span>
     </div>`;
   return `${head}
@@ -792,7 +834,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
-  if (d.tick) return requireAuth(() => quickStatus(d.tick, "done"));
+  if (d.tick) return requireAuth(() => tickDialog(d.tick));
   if (d.ftype !== undefined) { view.fType = d.ftype; return render(); }
   if (d.fowner !== undefined) { view.fOwner = d.fowner; return render(); }
   if (d.finding) {
@@ -819,8 +861,8 @@ document.addEventListener("click", (e) => {
     const done = isDone(t);
     const move = done
       ? `<button class="btn" data-status="todo" data-id="${esc(t.id)}">↺ Mark as not done</button>`
-      : `<button class="btn primary" data-status="done" data-id="${esc(t.id)}">✓ Mark done</button>`;
-    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, edit: { collection: "tasks", item: t }, link: t.output, linkLabel: "Open output ↗",
+      : `<button class="btn primary" data-tick="${esc(t.id)}">✓ Mark done</button>`;
+    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, edit: { collection: "tasks", item: t }, link: hasOutput(t) ? t.output : "", linkLabel: "Open output ↗",
       facts: `${chip(done ? "Done" : "To do", done ? "green" : "")}${who(t.owner)}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}${t.completed ? chip("Ticked off " + fmtDate(t.completed, { day: "numeric", month: "long" }), "green") : ""}` });
   }
   if (d.note) {

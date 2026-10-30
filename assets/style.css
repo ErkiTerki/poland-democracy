@@ -586,3 +586,11 @@ nav a.nav-guide.active { background: var(--red); color: #fff; }
 .f-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
 .f-caveat { font-size: 0.84rem; color: var(--muted); margin: 0; line-height: 1.45; }
 .f-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; }
+
+/* tick dialog */
+.tick-task { font-weight: 600; margin: -4px 0 14px; color: var(--text-2); }
+.tick-q { margin: 0 0 12px; line-height: 1.5; }
+.tick-q .muted { font-size: 0.85rem; }
+.tick-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.tick-actions .ghost { margin-left: auto; }
+.no-out { font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
