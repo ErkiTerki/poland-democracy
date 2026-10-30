@@ -25,7 +25,7 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 
 | Collection | Filename | Fields |
 |---|---|---|
-| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it), output (optional URL: what the task produced, e.g. a note, Drive file or finding) |
+| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it), output (done tasks only: URL of what the task produced, e.g. a note, Drive file or finding; `none` if there is nothing to link; leave it off open tasks) |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
 | findings | `short-claim.md` | title (the finding: one sentence with its number), type (`description`/`prediction`/`causal`), source (dataset or paper **with version**, e.g. "V-Dem v16 (Coppedge et al. 2026), v2x_libdem"), owner, date (YYYY-MM-DD), link (optional URL to the evidence). Body = caveats: uncertainty, coverage, what it does NOT show |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
