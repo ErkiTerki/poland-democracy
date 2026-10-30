@@ -31,9 +31,9 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 | papers | `short-title.md` | title, url, status (`to-read`/`reading`/`summarised`). Body = notes |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
 
-How the Tasks page reads them: open tasks are grouped into rounds by due date. A task owned by `Everyone` is the
-shared goal of its round: it heads the group, and individual tasks due up to 7 days before it sit under it. So give tasks
-that belong to the same round the same due date (or one up to a week before the shared task). Done tasks move to
+How the Tasks page reads them: open tasks are grouped strictly by due date (one group per date). A task owned by
+`Everyone` is the shared goal of its date: it heads that date's group, and only tasks with exactly the same due date sit
+under it. So give tasks that belong to the same round the same due date. Done tasks move to
 **Past work** (`#past`), a timeline grouped the same way. There is no `doing` status any more (old files with it count as open).
 
 The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
