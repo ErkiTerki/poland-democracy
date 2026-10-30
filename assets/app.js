@@ -17,6 +17,12 @@ const STATUS = {
   done: { label: "Done", color: "var(--green)" },
 };
 const isDone = (t) => t.status === "done";
+// The brief's rule: keep description, prediction and causal claims apart.
+const FINDING_TYPES = {
+  description: { label: "Description", chip: "slate", hint: "What the data shows happened." },
+  prediction: { label: "Prediction", chip: "amber", hint: "What is likely to happen next." },
+  causal: { label: "Causal claim", chip: "red", hint: "What made it happen. Needs a design that rules out other explanations, not just a correlation." },
+};
 // The three groups the challenge brief uses for its data list, plus a catch-all.
 const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust", "Other"];
 const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
@@ -27,7 +33,7 @@ const slug = (s) => String(s || "").toLowerCase().replace(/ł/g, "l").normalize(
 
 const FORMS = {
   tasks: {
-    noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due", "completed"],
+    noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due", "completed", "output"],
     base: (f) => slug(f.title),
     // `completed` = the day a task was ticked; it dates the entry on the Past work timeline.
     stamp: (f) => { if (f.status === "done") f.completed = f.completed || todayIso(); else delete f.completed; },
@@ -36,6 +42,7 @@ const FORMS = {
       { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["done", "Done"]] },
       { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
+      { k: "output", label: "Output: link to what this task produced (a note, a Drive file, a finding…)", type: "url", ph: "https://…" },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
   },
@@ -51,6 +58,19 @@ const FORMS = {
       { k: "repeat", label: "Repeats every week", type: "checkbox", value: "weekly", half: true },
       { k: "until", label: "Repeat until", type: "date", half: true, showIf: "repeat" },
       { k: "body", label: "Notes", type: "textarea", ph: "Agenda, who's going, links…" },
+    ],
+  },
+  findings: {
+    noun: "finding", dir: "content/findings", order: ["title", "type", "source", "owner", "date", "link"],
+    base: (f) => slug(f.title),
+    fields: [
+      { k: "title", label: "Finding: one sentence, with the number", type: "text", req: true, ph: "e.g. Turnout rose from 50.9% (2015) to 74.4% (2023)" },
+      { k: "type", label: "Type", type: "select", half: true, def: "description", opts: [["description", "Description: what happened"], ["prediction", "Prediction: what's likely next"], ["causal", "Causal: what made it happen"]] },
+      { k: "owner", label: "Found by", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
+      { k: "source", label: "Source and version", type: "text", req: true, ph: "e.g. V-Dem v16 (Coppedge et al. 2026), v2x_libdem" },
+      { k: "date", label: "Date", type: "date", half: true, def: () => todayIso() },
+      { k: "link", label: "Evidence link (chart, file, note)", type: "url", half: true, ph: "https://…" },
+      { k: "body", label: "Caveats and details: uncertainty, coverage, what it does NOT show", type: "textarea", rows: 6 },
     ],
   },
   datasets: {
@@ -93,7 +113,7 @@ const FORMS = {
 };
 
 let SITE = null;
-const view = { calY: null, calM: null, owner: "", author: "" };
+const view = { calY: null, calM: null, owner: "", author: "", fType: "", fOwner: "" };
 
 // ---------- helpers ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -138,7 +158,7 @@ function toast(msg, kind = "ok") {
   setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, kind === "err" ? 7000 : 4200);
 }
 
-function viewModal({ title, facts = "", body = "", link, accent = true, actions = "", edit }) {
+function viewModal({ title, facts = "", body = "", link, linkLabel = "Open source ↗", accent = true, actions = "", edit }) {
   showModal(`
     <div class="modal-top ${accent ? "" : "neutral"}"></div>
     <h2 class="modal-title" id="modal-title">${esc(title)}</h2>
@@ -146,7 +166,7 @@ function viewModal({ title, facts = "", body = "", link, accent = true, actions 
     ${actions ? `<div class="quick">${actions}</div>` : ""}
     <div class="modal-body prose">${body ? md(body) : '<p class="muted">No details yet.</p>'}</div>
     <div class="modal-foot">
-      <span class="foot-links">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">Open source ↗</a>` : ""}
+      <span class="foot-links">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(linkLabel)}</a>` : ""}
         ${edit ? `<a class="edit-link" href="${editUrl(edit.item)}" target="_blank" rel="noopener">View file on GitHub</a>` : ""}</span>
       ${edit ? `<button class="btn primary" data-edit="${edit.collection}" data-id="${esc(edit.item.id)}">Edit</button>` : ""}
     </div>`);
@@ -324,7 +344,8 @@ async function quickStatus(id, status) {
     applyLocal("tasks", t.path, Store.parse(text, t.path));
     if (modal.open) modal.close();
     const undo = `<button class="toast-undo" data-status="${status === "done" ? "todo" : "done"}" data-id="${esc(id)}">Undo</button>`;
-    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work. ${undo}` : `Back on the to-do list. ${undo}`);
+    const addOut = status === "done" && !fields.output ? `<button class="toast-undo" data-edit="tasks" data-id="${esc(id)}">Add output link</button>` : "";
+    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work. ${undo}${addOut}` : `Back on the to-do list. ${undo}`);
   } catch (err) { if (busy) busy.classList.remove("busy"); toast(esc(err.message), "err"); }
 }
 
@@ -455,6 +476,7 @@ function viewOverview() {
 
     <div class="stats">
       <a class="card stat" href="#tasks"><span class="n">${openTasks}</span><span class="l">open tasks</span></a>
+      <a class="card stat" href="#findings"><span class="n">${(SITE.findings || []).length}</span><span class="l">findings</span></a>
       <a class="card stat" href="#datasets"><span class="n">${SITE.datasets.length}</span><span class="l">datasets</span></a>
       <a class="card stat" href="#papers"><span class="n">${summarised}<span style="color:var(--muted);font-weight:500">/${SITE.papers.length}</span></span><span class="l">papers summarised</span></a>
     </div>
@@ -518,7 +540,7 @@ function taskCard(t, groupDate) {
     <div class="task-main">
       ${team ? '<div class="umbrella-tag">Shared goal for this round</div>' : ""}
       <div class="task-title">${esc(t.title || t.id)}</div>
-      <div class="task-meta">${team ? "" : who(t.owner)}${showDue ? chip((late ? "Overdue · " : "Due ") + fmtDate(t.due, { day: "numeric", month: "short" }), late ? "red" : "") : ""}${t.body ? '<span class="has-notes" title="Has details">Details</span>' : ""}</div>
+      <div class="task-meta">${team ? "" : who(t.owner)}${showDue ? chip((late ? "Overdue · " : "Due ") + fmtDate(t.due, { day: "numeric", month: "short" }), late ? "red" : "") : ""}${t.body ? '<span class="has-notes" title="Has details">Details</span>' : ""}${t.output ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : ""}</div>
     </div>
   </div>`;
 }
@@ -567,6 +589,7 @@ function viewPast() {
       <span class="past-check" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
       <span class="past-title">${isTeam(t.owner) ? '<span class="umbrella-tag">Shared goal</span>' : ""}${esc(t.title || t.id)}</span>
       <span class="past-who">${who(t.owner)}</span>
+      <span class="past-out">${t.output ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : `<button class="add-out" data-edit="tasks" data-id="${esc(t.id)}" title="Link what this task produced">+ Output</button>`}</span>
       <span class="past-when">${t.completed ? "Done " + fmtDate(t.completed, { day: "numeric", month: "short" }) : ""}</span>
     </div>`;
   return `${head}
@@ -588,6 +611,35 @@ function viewPast() {
         </div>
       </li>`;
     }).join("")}</ol>`;
+}
+
+function viewFindings() {
+  const add = addBtn("findings", "+ Add finding");
+  const head = pageHead("Evidence", "Findings", "What our data shows so far. Every finding names its source and version, and says whether it describes, predicts or claims a cause.", SITE.findings.length ? add : "");
+  const legend = `<div class="f-legend">${Object.values(FINDING_TYPES).map((t) => `<span>${chip(t.label, t.chip)} ${esc(t.hint)}</span>`).join("")}</div>`;
+  if (!SITE.findings.length) return `${head}${legend}<div class="empty"><h3>No findings yet</h3><p>Log the first thing the data told you: one sentence, the number, and its source.</p>${add}</div>`;
+  const owners = [...new Set(SITE.findings.map((f) => f.owner).filter(Boolean))].sort();
+  if (view.fOwner && !owners.includes(view.fOwner)) view.fOwner = "";
+  const items = SITE.findings
+    .filter((f) => !view.fType || (FINDING_TYPES[f.type] ? f.type : "description") === view.fType)
+    .filter((f) => !view.fOwner || f.owner === view.fOwner)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || a.title.localeCompare(b.title));
+  const seg = (attr, cur, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button ${attr}="${esc(v)}" class="${cur === v ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+  return `${head}${legend}
+    <div class="toolbar">
+      ${seg("data-ftype", view.fType || "", [["", "All types"], ...Object.entries(FINDING_TYPES).map(([k, t]) => [k, t.label])])}
+      ${owners.length > 1 ? seg("data-fowner", view.fOwner || "", [["", "All"], ...owners.map((o) => [o, o])]) : ""}
+    </div>
+    <div class="findings">${items.map((f) => {
+      const t = FINDING_TYPES[f.type] || FINDING_TYPES.description;
+      return `<div class="card finding ${esc(f.type || "description")}" data-finding="${esc(f.id)}" role="button" tabindex="0">
+        <div class="f-top">${chip(t.label, t.chip)}${f.date ? `<span class="f-date">${fmtDate(f.date, { day: "numeric", month: "short", year: "numeric" })}</span>` : ""}</div>
+        <div class="f-claim">${esc(f.title)}</div>
+        <div class="f-source">${f.source ? `<span class="f-label">Source</span> ${esc(f.source)}` : '<span class="chip red">No source yet</span>'}</div>
+        ${f.body ? `<p class="f-caveat">${esc(excerpt(f.body, 150))}</p>` : ""}
+        <div class="f-foot">${who(f.owner)}${f.link ? `<a class="out-link" href="${esc(f.link)}" target="_blank" rel="noopener">Evidence ↗</a>` : ""}</div>
+      </div>`;
+    }).join("") || '<div class="col-empty">No findings match these filters.</div>'}</div>`;
 }
 
 const rowsHtml = (items, rowFn) => `<div class="card rows">${items.map(rowFn).join("")}</div>`;
@@ -706,14 +758,15 @@ function viewGuide() {
           <li>"Add a task for me: pull turnout data from IDEA, due next Friday."</li>
           <li>"Put a team meeting in the calendar on Thursday at 14:00 in the library."</li>
           <li>"I read this paper: add it to the literature list with a summary."</li>
-          <li>"Mark my V-Dem task as done."</li></ul>`)}
+          <li>"Mark my V-Dem task as done."</li>
+          <li>"Log a finding: Poland's turnout rose from 50.9% to 74.4% between 2015 and 2023, source IDEA."</li></ul>`)}
       </ol>
       <p class="g-alt">Prefer a file? <a href="AGENT_SETUP.md" download>Download AGENT_SETUP.md</a> and hand it to your agent.</p>
     </div>`;
 }
 
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, findings: viewFindings, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];
@@ -726,7 +779,8 @@ function render() {
 document.addEventListener("click", (e) => {
   const jump = e.target.closest('a[href^="#g-"]');
   if (jump) { e.preventDefault(); document.querySelector(jump.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); return; }
-  const el = e.target.closest("[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
+  const el = e.target.closest("[data-ftype],[data-fowner],[data-finding],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -739,6 +793,14 @@ document.addEventListener("click", (e) => {
   }
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.tick) return requireAuth(() => quickStatus(d.tick, "done"));
+  if (d.ftype !== undefined) { view.fType = d.ftype; return render(); }
+  if (d.fowner !== undefined) { view.fOwner = d.fowner; return render(); }
+  if (d.finding) {
+    const f = find("findings", d.finding);
+    const t = FINDING_TYPES[f.type] || FINDING_TYPES.description;
+    return viewModal({ title: f.title, body: f.body, accent: false, link: f.link, linkLabel: "Open evidence ↗", edit: { collection: "findings", item: f },
+      facts: `${chip(t.label, t.chip)}${who(f.owner)}${f.date ? chip(fmtDate(f.date, { day: "numeric", month: "long", year: "numeric" })) : ""}${f.source ? chip("Source: " + f.source, "slate") : chip("No source yet", "red")}` });
+  }
   if (d.ev) return openEvent(d.ev, d.on);
   if (d.add) return requireAuth(() => openForm(d.add, null, d.date ? { date: d.date } : {}));
   if (d.edit) return requireAuth(() => openForm(d.edit, d.edit === "overview" ? "overview" : d.id));
@@ -758,7 +820,7 @@ document.addEventListener("click", (e) => {
     const move = done
       ? `<button class="btn" data-status="todo" data-id="${esc(t.id)}">↺ Mark as not done</button>`
       : `<button class="btn primary" data-status="done" data-id="${esc(t.id)}">✓ Mark done</button>`;
-    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, edit: { collection: "tasks", item: t },
+    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, edit: { collection: "tasks", item: t }, link: t.output, linkLabel: "Open output ↗",
       facts: `${chip(done ? "Done" : "To do", done ? "green" : "")}${who(t.owner)}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}${t.completed ? chip("Ticked off " + fmtDate(t.completed, { day: "numeric", month: "long" }), "green") : ""}` });
   }
   if (d.note) {
@@ -775,7 +837,7 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task]')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task], [role="button"][data-finding]')) { e.preventDefault(); e.target.click(); }
 });
 
 // ---------- light / dark ----------
