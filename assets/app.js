@@ -11,11 +11,12 @@ const EVENT_TYPES = {
   team: { label: "Team", chip: "" },
   other: { label: "Other", chip: "" },
 };
+// Tasks are either open or done. Old "doing" files still load and count as open.
 const STATUS = {
   todo: { label: "To do", color: "var(--muted)" },
-  doing: { label: "Doing", color: "var(--red)" },
   done: { label: "Done", color: "var(--green)" },
 };
+const isDone = (t) => t.status === "done";
 // The three groups the challenge brief uses for its data list, plus a catch-all.
 const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust", "Other"];
 const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
@@ -26,12 +27,14 @@ const slug = (s) => String(s || "").toLowerCase().replace(/ł/g, "l").normalize(
 
 const FORMS = {
   tasks: {
-    noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due"],
+    noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due", "completed"],
     base: (f) => slug(f.title),
+    // `completed` = the day a task was ticked; it dates the entry on the Past work timeline.
+    stamp: (f) => { if (f.status === "done") f.completed = f.completed || todayIso(); else delete f.completed; },
     fields: [
       { k: "title", label: "Task", type: "text", req: true, ph: "e.g. Pull V-Dem intervals for Poland" },
-      { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["doing", "Doing"], ["done", "Done"]] },
-      { k: "owner", label: "Owner", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
+      { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["done", "Done"]] },
+      { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
@@ -105,6 +108,14 @@ const fmtDate = (s, opts = { weekday: "short", day: "numeric", month: "short" })
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 864e5);
 const initials = (name) => String(name || "?").trim().split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 const chip = (text, cls = "") => (text ? `<span class="chip ${cls}">${esc(text)}</span>` : "");
+// "Everyone" (or All / Team) marks a shared task: the umbrella over a round of individual tasks.
+const isTeam = (owner) => /^(everyone|all|team|whole team)$/i.test(String(owner || "").trim());
+const hue = (name) => [...String(name)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
+const who = (owner) => {
+  if (!owner) return '<span class="who none">Unassigned</span>';
+  if (isTeam(owner)) return '<span class="who team"><i></i>Everyone</span>';
+  return `<span class="who" style="--h:${hue(owner.trim().toLowerCase())}"><i></i>${esc(owner)}</span>`;
+};
 const find = (collection, id) => SITE[collection].find((x) => x.id === id);
 
 // ---------- modal + toast ----------
@@ -299,17 +310,22 @@ async function openForm(collection, id, defaults = {}) {
 
 async function quickStatus(id, status) {
   const t = find("tasks", id);
+  if (!t) return;
+  const busy = document.querySelector(`[data-tick="${CSS.escape(id)}"]`);
+  if (busy) busy.classList.add("busy");
   try {
     const r = await Store.read(t.path);
     if (!r) return toast("That task no longer exists.", "err");
     const fields = { ...r.item, status };
     delete fields.id; delete fields.path;
+    FORMS.tasks.stamp(fields);
     const text = Store.serialize(fields, FORMS.tasks.order);
     await Store.write(t.path, text, `tasks: "${fields.title}" → ${status} (via site, @${Store.auth.login})`, r.sha);
     applyLocal("tasks", t.path, Store.parse(text, t.path));
-    modal.close();
-    toast(`Moved to <strong>${STATUS[status].label}</strong>.`);
-  } catch (err) { toast(esc(err.message), "err"); }
+    if (modal.open) modal.close();
+    const undo = `<button class="toast-undo" data-status="${status === "done" ? "todo" : "done"}" data-id="${esc(id)}">Undo</button>`;
+    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work. ${undo}` : `Back on the to-do list. ${undo}`);
+  } catch (err) { if (busy) busy.classList.remove("busy"); toast(esc(err.message), "err"); }
 }
 
 function applyLocal(collection, path, item) {
@@ -456,41 +472,130 @@ function pageHead(eyebrow, title, sub, action) {
   return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1 class="page-title">${title}</h1>${sub ? `<p class="page-sub">${sub}</p>` : ""}</div>${action || ""}</div>`;
 }
 
+// Group tasks into "rounds": each Everyone task is the umbrella for the individual tasks due in the
+// week up to its own deadline; any other task joins the group of its own due date.
+function rounds(tasks) {
+  const groups = new Map();
+  const group = (date) => {
+    const k = date || "undated";
+    if (!groups.has(k)) groups.set(k, { date, lead: [], items: [] });
+    return groups.get(k);
+  };
+  for (const t of tasks.filter((t) => isTeam(t.owner))) group(t.due).lead.push(t);
+  const umbrellaDates = [...groups.values()].filter((g) => g.date).map((g) => g.date).sort();
+  for (const t of tasks.filter((t) => !isTeam(t.owner))) {
+    const home = t.due && umbrellaDates.find((d) => d >= t.due && daysBetween(t.due, d) <= 7);
+    group(home || t.due).items.push(t);
+  }
+  for (const g of groups.values()) {
+    g.items.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || String(a.owner).localeCompare(String(b.owner)));
+    g.lead.sort((a, b) => a.title.localeCompare(b.title));
+    g.date = g.date || [...g.lead, ...g.items].map((t) => t.due).filter(Boolean).sort().pop() || null;
+  }
+  return [...groups.values()];
+}
+
+const relDue = (d) => {
+  const n = daysBetween(todayIso(), d);
+  return n === 0 ? "today" : n === 1 ? "tomorrow" : n > 1 ? `in ${n} days` : n === -1 ? "1 day overdue" : `${-n} days overdue`;
+};
+
+// Filter bar: "All" = every task, "Everyone" = only the shared tasks, a name = only that person's tasks.
+const TEAM = "__team__";
+function ownerFilter(tasks) {
+  const owners = [...new Set(tasks.map((t) => t.owner).filter((o) => o && !isTeam(o)))].sort();
+  const hasTeam = tasks.some((t) => isTeam(t.owner));
+  if (view.owner && view.owner !== TEAM && !owners.includes(view.owner)) view.owner = "";
+  if (view.owner === TEAM && !hasTeam) view.owner = "";
+  const btn = (val, label) => `<button data-owner="${esc(val)}" class="${view.owner === val ? "on" : ""}">${esc(label)}</button>`;
+  return {
+    keep: (t) => !view.owner || (view.owner === TEAM ? isTeam(t.owner) : t.owner === view.owner),
+    html: owners.length + (hasTeam ? 1 : 0) > 1 ? `<div class="toolbar"><div class="seg" role="group" aria-label="Filter by owner">
+      ${btn("", "All")}${hasTeam ? btn(TEAM, "Everyone") : ""}${owners.map((o) => btn(o, o)).join("")}
+    </div></div>` : "",
+  };
+}
+
+function taskCard(t, groupDate) {
+  const today = todayIso();
+  const late = t.due && t.due < today;
+  const showDue = t.due && (t.due !== groupDate || late);
+  const team = isTeam(t.owner);
+  return `<div class="card task${team ? " umbrella" : ""}" data-task="${esc(t.id)}" role="button" tabindex="0">
+    <button class="tick" data-tick="${esc(t.id)}" aria-label="Mark “${esc(t.title)}” as done" title="Mark as done"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></button>
+    <div class="task-main">
+      ${team ? '<div class="umbrella-tag">Shared goal for this round</div>' : ""}
+      <div class="task-title">${esc(t.title || t.id)}</div>
+      <div class="task-meta">${team ? "" : who(t.owner)}${showDue ? chip((late ? "Overdue · " : "Due ") + fmtDate(t.due, { day: "numeric", month: "short" }), late ? "red" : "") : ""}${t.body ? '<span class="has-notes" title="Has details">Details</span>' : ""}</div>
+    </div>
+  </div>`;
+}
+
 function viewTasks() {
   const add = addBtn("tasks", "+ Add task");
-  const head = pageHead("Work split", "Tasks", "Click a task to move it along, edit it or delete it.", SITE.tasks.length ? add : "");
-  if (!SITE.tasks.length) {
-    return `${head}<div class="empty"><h3>No tasks yet</h3><p>Add the first one here, or ask your agent ("add a task for…").</p>${add}</div>`;
+  const done = SITE.tasks.filter(isDone);
+  const pastBtn = `<a class="btn past-btn" href="#past">Past work <span class="pill">${done.length}</span></a>`;
+  const head = pageHead("Work split", "Tasks", "Tick a task when it's finished: it moves to Past work. Click a task for details, or to edit it.",
+    `<div class="head-actions">${pastBtn}${add}</div>`);
+  const open = SITE.tasks.filter((t) => !isDone(t));
+  if (!open.length) {
+    return `${head}<div class="empty"><h3>Nothing left to do</h3><p>Everything is ticked off. Add the next round of tasks, or look back at what's been done.</p>${add}</div>`;
   }
-  const owners = [...new Set(SITE.tasks.map((t) => t.owner || "Unassigned"))].sort();
-  if (view.owner && !owners.includes(view.owner)) view.owner = "";
+  const filter = ownerFilter(open);
+  const groups = rounds(open.filter(filter.keep)).sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
   const today = todayIso();
-  const tasks = SITE.tasks
-    .filter((t) => !view.owner || (t.owner || "Unassigned") === view.owner)
-    .sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
-  const col = (key) => {
-    const items = tasks.filter((t) => (STATUS[t.status] ? t.status : "todo") === key);
-    return `<div class="col">
-      <div class="col-head"><span class="bar" style="background:${STATUS[key].color}"></span>${STATUS[key].label}<span class="count">${items.length}</span></div>
-      ${items.map((t) => {
-        const late = key !== "done" && t.due && t.due < today;
-        return `<button class="card task ${key}" data-task="${esc(t.id)}">
-          <div class="task-title">${esc(t.title || t.id)}</div>
-          <div class="task-meta">
-            <span class="avatar" title="${esc(t.owner || "Unassigned")}">${t.owner ? esc(initials(t.owner)) : "?"}</span>
-            ${t.due ? chip((late ? "Overdue · " : "") + fmtDate(t.due, { day: "numeric", month: "short" }), late ? "red" : "") : ""}
-          </div>
-        </button>`;
-      }).join("") || '<div class="col-empty">Nothing here</div>'}
-      ${key === "todo" ? '<button class="col-add" data-add="tasks">+ Add task</button>' : ""}
+  return `${head}${filter.html}
+    <div class="rounds">${groups.map((g) => {
+      const late = g.date && g.date < today;
+      const people = new Set(g.items.map((t) => t.owner).filter(Boolean)).size;
+      return `<section class="round${late ? " late" : ""}">
+        <header class="round-head">
+          <div><div class="round-label">${g.date ? "Due" : "No deadline"}</div>
+            ${g.date ? `<h2 class="round-date">${fmtDate(g.date, { weekday: "long", day: "numeric", month: "long" })}</h2>` : ""}</div>
+          <div class="round-meta">${g.date ? chip(relDue(g.date), late ? "red" : "") : ""}<span>${g.lead.length + g.items.length} task${g.lead.length + g.items.length === 1 ? "" : "s"}${people ? ` · ${people} ${people === 1 ? "person" : "people"}` : ""}</span></div>
+        </header>
+        ${g.lead.map((t) => taskCard(t, g.date)).join("")}
+        ${g.items.length ? `<div class="round-grid">${g.items.map((t) => taskCard(t, g.date)).join("")}</div>` : ""}
+      </section>`;
+    }).join("")}</div>
+    <button class="col-add" data-add="tasks">+ Add task</button>`;
+}
+
+function viewPast() {
+  const done = SITE.tasks.filter(isDone);
+  const back = `<a class="btn" href="#tasks">← Back to tasks</a>`;
+  const head = pageHead("Track record", "Past work", "Every finished task, grouped by the deadline it was set for: who owned what, and when it was ticked off.", back);
+  if (!done.length) return `${head}<div class="empty"><h3>Nothing finished yet</h3><p>Tick a task on the Tasks page and it lands here, on the timeline.</p>${back}</div>`;
+  const filter = ownerFilter(done);
+  const shown = done.filter(filter.keep);
+  const groups = rounds(shown).sort((a, b) => (b.date || "0000").localeCompare(a.date || "0000"));
+  const counts = {};
+  for (const t of done) if (t.owner && !isTeam(t.owner)) counts[t.owner] = (counts[t.owner] || 0) + 1;
+  const row = (t) => `<div class="past-row${isTeam(t.owner) ? " umbrella" : ""}" data-task="${esc(t.id)}" role="button" tabindex="0">
+      <span class="past-check" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
+      <span class="past-title">${isTeam(t.owner) ? '<span class="umbrella-tag">Shared goal</span>' : ""}${esc(t.title || t.id)}</span>
+      <span class="past-who">${who(t.owner)}</span>
+      <span class="past-when">${t.completed ? "Done " + fmtDate(t.completed, { day: "numeric", month: "short" }) : ""}</span>
     </div>`;
-  };
   return `${head}
-    <div class="toolbar"><div class="seg" role="group" aria-label="Filter by owner">
-      <button data-owner="" class="${view.owner ? "" : "on"}">Everyone</button>
-      ${owners.map((o) => `<button data-owner="${esc(o)}" class="${view.owner === o ? "on" : ""}">${esc(o)}</button>`).join("")}
-    </div></div>
-    <div class="kanban">${col("todo")}${col("doing")}${col("done")}</div>`;
+    <div class="past-summary card">
+      <div class="ps-n"><b>${done.length}</b><span>tasks done</span></div>
+      <div class="ps-n"><b>${rounds(done).length}</b><span>rounds</span></div>
+      <div class="ps-people">${Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([o, n]) => `<span class="ps-person">${who(o)}<b>${n}</b></span>`).join("")}</div>
+    </div>
+    ${filter.html}
+    <ol class="timeline">${groups.map((g) => {
+      const d = g.date ? parseDate(g.date) : null;
+      const n = g.lead.length + g.items.length;
+      return `<li class="tl-item">
+        <div class="tl-date">${d ? `<b>${d.getDate()}</b><span>${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}</span>` : "<span>No date</span>"}</div>
+        <div class="tl-dot" aria-hidden="true"></div>
+        <div class="card tl-card">
+          <div class="tl-head"><span>${d ? "Due " + fmtDate(g.date, { weekday: "long", day: "numeric", month: "long" }) : "Undated"}</span><span class="muted">${n} task${n === 1 ? "" : "s"}</span></div>
+          ${[...g.lead, ...g.items].map(row).join("")}
+        </div>
+      </li>`;
+    }).join("")}</ol>`;
 }
 
 const rowsHtml = (items, rowFn) => `<div class="card rows">${items.map(rowFn).join("")}</div>`;
@@ -616,19 +721,20 @@ function viewGuide() {
 }
 
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];
   const key = VIEWS[route] ? route : "overview";
   document.getElementById("app").innerHTML = VIEWS[key]();
-  document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + key));
+  const navKey = key === "past" ? "tasks" : key;
+  document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + navKey));
 }
 
 document.addEventListener("click", (e) => {
   const jump = e.target.closest('a[href^="#g-"]');
   if (jump) { e.preventDefault(); document.querySelector(jump.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); return; }
-  const el = e.target.closest("[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -640,6 +746,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
+  if (d.tick) return requireAuth(() => quickStatus(d.tick, "done"));
   if (d.ev) return openEvent(d.ev, d.on);
   if (d.add) return requireAuth(() => openForm(d.add, null, d.date ? { date: d.date } : {}));
   if (d.edit) return requireAuth(() => openForm(d.edit, d.edit === "overview" ? "overview" : d.id));
@@ -655,10 +762,12 @@ document.addEventListener("click", (e) => {
   }
   if (d.task) {
     const t = find("tasks", d.task);
-    const s = STATUS[t.status] ? t.status : "todo";
-    const moves = Object.keys(STATUS).filter((k) => k !== s).map((k) => `<button class="btn" data-status="${k}" data-id="${esc(t.id)}">${k === "done" ? "✓ Mark done" : "Move to " + STATUS[k].label}</button>`).join("");
-    return viewModal({ title: t.title, body: t.body, accent: s === "doing", actions: moves, edit: { collection: "tasks", item: t },
-      facts: `${chip(STATUS[s].label, s === "done" ? "green" : s === "doing" ? "red" : "")}${chip(t.owner || "Unassigned", "slate")}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}` });
+    const done = isDone(t);
+    const move = done
+      ? `<button class="btn" data-status="todo" data-id="${esc(t.id)}">↺ Mark as not done</button>`
+      : `<button class="btn primary" data-status="done" data-id="${esc(t.id)}">✓ Mark done</button>`;
+    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, edit: { collection: "tasks", item: t },
+      facts: `${chip(done ? "Done" : "To do", done ? "green" : "")}${who(t.owner)}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}${t.completed ? chip("Ticked off " + fmtDate(t.completed, { day: "numeric", month: "long" }), "green") : ""}` });
   }
   if (d.note) {
     const n = find("notes", d.note);
@@ -671,6 +780,10 @@ document.addEventListener("click", (e) => {
     return viewModal({ title: p.title, body: p.body, link: p.url, accent: false, edit: { collection: "papers", item: p },
       facts: chip(label, cls) });
   }
+});
+
+document.addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task]')) { e.preventDefault(); e.target.click(); }
 });
 
 // ---------- light / dark ----------
