@@ -1,9 +1,8 @@
 ---
 title: Video: History of Poland's Democracy and the role of Women
 author: Francesco
-updated: 2026-10-30 13:28
+updated: 2026-10-30 13:38
 ---
-Video in question:
 https://www.youtube.com/watch?v=20R-JIGa2yo
 
 - 1981: imposition of martial law 
