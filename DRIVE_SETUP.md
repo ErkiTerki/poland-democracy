@@ -28,12 +28,13 @@ time each of us signs in: click **Continue**.
 ## 4. Create the two keys
 1. Menu → **APIs & Services → Credentials**.
 2. **Create credentials → API key**. Then click it to edit:
-   - Application restrictions: **Websites** → add `https://erkiterki.github.io/*`
+   - Application restrictions: **Websites** → add `https://erkiterki.github.io/*` **and** `https://docs.google.com/*`
+     (without the second one the picker shows "API developer key is invalid")
    - API restrictions: **Restrict key** → tick **Google Picker API**. Save.
-3. **Create credentials → OAuth client ID**:
+3. **Google Auth Platform → Clients → Create client** (older menus: Create credentials → OAuth client ID):
    - Application type: **Web application**. Name: `Hub`.
    - Authorised JavaScript origins: `https://erkiterki.github.io` (and `http://localhost:8000` for local testing).
-   - Create. Copy the **Client ID** (ends in `.apps.googleusercontent.com`).
+   - Create. Copy the **Client ID** (ends in `.apps.googleusercontent.com`). Ignore the client secret: the site never uses it.
 4. Menu → **IAM & Admin → Settings** (or the project dashboard): copy the **Project number** (digits only).
 
 ## 5. Put them in the site
@@ -53,3 +54,5 @@ These values are not secrets: Google only accepts them from our website and only
 can sit in the public repo. Never put a **client secret** or a personal password here.
 
 Commit, wait a minute, refresh: link fields now show **Choose from Drive**.
+
+**Status:** done on 30 Oct 2026 (project `poland-democracy-hub`); the values are in `assets/app.js`.
