@@ -25,8 +25,9 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 
 | Collection | Filename | Fields |
 |---|---|---|
-| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it) |
+| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it), output (optional URL: what the task produced, e.g. a note, Drive file or finding) |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
+| findings | `short-claim.md` | title (the finding: one sentence with its number), type (`description`/`prediction`/`causal`), source (dataset or paper **with version**, e.g. "V-Dem v16 (Coppedge et al. 2026), v2x_libdem"), owner, date (YYYY-MM-DD), link (optional URL to the evidence). Body = caveats: uncertainty, coverage, what it does NOT show |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
 | papers | `short-title.md` | title, url, status (`to-read`/`reading`/`summarised`). Body = notes |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
@@ -35,6 +36,9 @@ How the Tasks page reads them: open tasks are grouped strictly by due date (one 
 `Everyone` is the shared goal of its date: it heads that date's group, and only tasks with exactly the same due date sit
 under it. So give tasks that belong to the same round the same due date. Done tasks move to
 **Past work** (`#past`), a timeline grouped the same way. There is no `doing` status any more (old files with it count as open).
+
+Findings are the team's evidence log. Mark a finding `causal` only if it comes from a design that rules out other
+explanations; a correlation or a co-occurrence in time is a `description`, and its body should say so.
 
 The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
 Events appear on the Overview calendar. `board` events also drive the countdown.
