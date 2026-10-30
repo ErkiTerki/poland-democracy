@@ -4,6 +4,116 @@ const GH = `https://github.com/${REPO}`;
 const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=public_repo&description=Poland%20Democracy%20Hub";
 const editUrl = (item) => `${GH}/edit/main/${item.path}`;
 
+// ---------- team Google Drive ----------
+// Files (PDFs, slides, spreadsheets) live in the team's private Drive folder; the site stores only their links.
+// With apiKey + clientId filled in (one-time setup: DRIVE_SETUP.md), "Choose from Drive" opens Google's own
+// file picker and fills the link in automatically. Left empty, the buttons open the folder and paste the copied link.
+// None of these values is a secret: Google restricts them to this website.
+const DRIVE = {
+  folderId: "1D73e04DwqlUc9RZlXp4l5BQ_n7mzED1f",
+  apiKey: "",
+  clientId: "",
+  appId: "", // the Google Cloud project NUMBER
+};
+const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE.folderId}`;
+const pickerOn = () => !!(DRIVE.apiKey && DRIVE.clientId);
+const DRIVE_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="#0066da" d="M3.2 17.7l.9 1.6c.2.3.5.6.8.8L8 14.8H1.7c0 .4.1.7.3 1z"/><path fill="#00ac47" d="M12 8.3L8.9 3c-.3.2-.6.5-.8.8L2 14c-.2.3-.3.7-.3 1H8z"/><path fill="#ea4335" d="M19.1 20.1c.3-.2.6-.5.8-.8l.4-.6 1.7-3c.2-.3.3-.7.3-1h-6.3l1.3 2.6z"/><path fill="#00832d" d="M12 8.3L15.1 3c-.3-.2-.7-.3-1.1-.3H10c-.4 0-.7.1-1.1.3z"/><path fill="#2684fc" d="M16 14.8H8l-3.1 5.3c.3.2.7.3 1.1.3h12c.4 0 .7-.1 1.1-.3z"/><path fill="#ffba00" d="M19.1 8.6l-2.9-4.9c-.2-.3-.5-.6-.8-.8L12.3 8.3l3.7 6.5h6.3c0-.4-.1-.7-.3-1z"/></svg>';
+
+// The link input + Drive buttons, used by every form field that takes a link to a file.
+function linkRow(name, value = "", ph = "https://…") {
+  const btns = pickerOn()
+    ? `<button type="button" class="btn drive-btn" data-drive="pick">${DRIVE_ICON} Choose from Drive</button>`
+    : `<button type="button" class="btn drive-btn" data-drive="open">${DRIVE_ICON} Open team Drive ↗</button><button type="button" class="btn ghost paste-btn" data-drive="paste">Paste link</button>`;
+  return `<span class="link-row"><input type="url" name="${name}" value="${esc(value)}" placeholder="${esc(ph)}">${btns}</span>
+    <small class="drive-hint">${pickerOn() ? "Pick a file from the team Drive, or upload one there, and its link fills in automatically." : "File on your computer? Put it in the team Drive (private to us), click <b>Share → Copy link</b> on it, then <b>Paste link</b>."}</small>`;
+}
+
+const loadScript = (src) => new Promise((ok, fail) => {
+  const s = document.createElement("script");
+  s.src = src; s.async = true; s.onload = ok; s.onerror = () => fail(new Error("Couldn't load Google's file picker. Check your connection."));
+  document.head.appendChild(s);
+});
+let pickerLoaded = null, driveToken = null;
+function driveAccessToken() {
+  if (driveToken && driveToken.exp > Date.now()) return Promise.resolve(driveToken.value);
+  return new Promise((ok, fail) => {
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: DRIVE.clientId,
+      scope: "https://www.googleapis.com/auth/drive.file",
+      callback: (r) => {
+        if (r.error) return fail(new Error("Google sign-in didn't complete."));
+        driveToken = { value: r.access_token, exp: Date.now() + ((r.expires_in || 3600) - 60) * 1000 };
+        ok(r.access_token);
+      },
+      error_callback: () => fail(new Error("Google sign-in was closed.")),
+    });
+    client.requestAccessToken({ prompt: "" });
+  });
+}
+// Opens Google's picker on the team folder (browse or upload). Resolves to { url, name } or null if cancelled.
+async function pickFromDrive() {
+  pickerLoaded ||= Promise.all([loadScript("https://apis.google.com/js/api.js"), loadScript("https://accounts.google.com/gsi/client")])
+    .then(() => new Promise((ok) => gapi.load("picker", ok)));
+  await pickerLoaded;
+  const token = await driveAccessToken();
+  // Our form sits in a modal <dialog> (the browser's top layer), which would cover Google's picker:
+  // lower it to a normal dialog while the picker is open, then put it back.
+  const lowered = modal.open;
+  if (lowered) { modal.close(); modal.show(); modal.classList.add("lowered"); }
+  try {
+    return await new Promise((ok) => {
+      const P = google.picker;
+      const browse = new P.DocsView(P.ViewId.DOCS).setParent(DRIVE.folderId).setIncludeFolders(true);
+      const upload = new P.DocsUploadView().setParent(DRIVE.folderId).setIncludeFolders(true);
+      const b = new P.PickerBuilder()
+        .addView(browse).addView(upload)
+        .enableFeature(P.Feature.SUPPORT_DRIVES)
+        .setOAuthToken(token).setDeveloperKey(DRIVE.apiKey)
+        .setTitle("Team Drive: pick a file, or upload one")
+        .setCallback((d) => {
+          const action = d[P.Response.ACTION];
+          if (action === P.Action.PICKED) {
+            const doc = d[P.Response.DOCUMENTS][0];
+            ok({ url: doc[P.Document.URL], name: doc[P.Document.NAME] });
+          } else if (action === P.Action.CANCEL) ok(null);
+        });
+      if (DRIVE.appId) b.setAppId(DRIVE.appId);
+      b.build().setVisible(true);
+    });
+  } finally {
+    if (lowered) { modal.close(); modal.classList.remove("lowered"); modal.showModal(); }
+  }
+}
+
+// Handles the Drive buttons: put the link into the row's input (or, for a notes body, insert a Markdown link).
+async function driveAction(btn) {
+  const row = btn.closest(".link-row, .attach-row");
+  const target = row.classList.contains("attach-row") ? row.closest(".field").querySelector("textarea") : row.querySelector("input");
+  const put = (url, name) => {
+    if (target.tagName === "TEXTAREA") {
+      const md = `[${name || "Attachment"}](${url})`;
+      const at = target.selectionStart ?? target.value.length;
+      target.value = target.value.slice(0, at) + (at && !/\s$/.test(target.value.slice(0, at)) ? "\n" : "") + md + target.value.slice(at);
+    } else target.value = url;
+    target.focus();
+    toast(`Linked${name ? ` <strong>${esc(name)}</strong>` : ""}.`);
+  };
+  const mode = btn.dataset.drive;
+  if (mode === "open") return window.open(DRIVE_FOLDER_URL, "_blank", "noopener");
+  if (mode === "paste") {
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (!/^https?:\/\//.test(text)) return toast("Nothing to paste yet: in Drive, click <b>Share → Copy link</b> on the file first.", "err");
+      return put(text);
+    } catch { target.focus(); return toast("Your browser blocked pasting: click in the field and press Cmd+V (Ctrl+V).", "err"); }
+  }
+  try {
+    btn.disabled = true;
+    const file = await pickFromDrive();
+    if (file) put(file.url, file.name);
+  } catch (e) { toast(esc(e.message), "err"); } finally { btn.disabled = false; }
+}
+
 const EVENT_TYPES = {
   board: { label: "Board", chip: "red" },
   deadline: { label: "Deadline", chip: "amber" },
@@ -47,7 +157,7 @@ const FORMS = {
       { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["done", "Done"]] },
       { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
-      { k: "output", label: "Output: link to what this task produced (leave empty if there is none)", type: "url", ph: "https://… (a note, a Drive file, a finding, slides…)", showIf: "status", showIfValue: "done" },
+      { k: "output", label: "Output: link to what this task produced (leave empty if there is none)", type: "url", drive: true, ph: "https://… (a Drive file, a note, a finding, slides…)", showIf: "status", showIfValue: "done" },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
   },
@@ -74,7 +184,7 @@ const FORMS = {
       { k: "owner", label: "Found by", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "source", label: "Source and version", type: "text", req: true, ph: "e.g. V-Dem v16 (Coppedge et al. 2026), v2x_libdem" },
       { k: "date", label: "Date", type: "date", half: true, def: () => todayIso() },
-      { k: "link", label: "Evidence link (chart, file, note)", type: "url", half: true, ph: "https://…" },
+      { k: "link", label: "Evidence: link to the chart, file or note", type: "url", drive: true },
       { k: "body", label: "Caveats and details: uncertainty, coverage, what it does NOT show", type: "textarea", rows: 6 },
     ],
   },
@@ -93,7 +203,7 @@ const FORMS = {
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Title", type: "text", req: true },
-      { k: "url", label: "Link", type: "url", ph: "DOI or URL (no PDFs in the repo)" },
+      { k: "url", label: "Link: DOI or publisher page, or the PDF in our Drive", type: "url", drive: true, ph: "https://…" },
       { k: "status", label: "Status", type: "select", def: "to-read", opts: [["to-read", "To read"], ["reading", "Reading"], ["summarised", "Summarised"]] },
       { k: "body", label: "Notes", type: "textarea", rows: 8 },
     ],
@@ -105,7 +215,7 @@ const FORMS = {
     fields: [
       { k: "title", label: "Headline", type: "text", req: true, ph: "e.g. Notes from the Latitudes kick-off" },
       { k: "author", label: "Written by", type: "text", list: "owners", def: () => Store.auth?.name || "" },
-      { k: "body", label: "Notes (Markdown works: **bold**, - lists, ## headings)", type: "textarea", rows: 14 },
+      { k: "body", label: "Notes (Markdown works: **bold**, - lists, ## headings)", type: "textarea", rows: 14, drive: true },
     ],
   },
   overview: {
@@ -247,7 +357,8 @@ function fieldHtml(f, val) {
   const cls = `field${f.half ? " half" : ""}${f.showIf ? " cond" : ""}`;
   const attrs = `name="${f.k}" ${f.req ? "required" : ""} ${f.ph ? `placeholder="${esc(f.ph)}"` : ""}`;
   const dataIf = f.showIf ? ` data-if="${f.showIf}"${f.showIfValue ? ` data-if-val="${esc(f.showIfValue)}"` : ""}` : "";
-  if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea></label>`;
+  if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea>${f.drive ? `<span class="attach-row">${pickerOn() ? `<button type="button" class="btn drive-btn" data-drive="pick">${DRIVE_ICON} Attach a file from Drive</button>` : `<button type="button" class="btn drive-btn" data-drive="open">${DRIVE_ICON} Open team Drive ↗</button><button type="button" class="btn ghost paste-btn" data-drive="paste">Paste file link</button><small class="drive-hint">Adds the copied Drive link where your cursor is.</small>`}</span>` : ""}</label>`;
+  if (f.drive) return `<div class="${cls}"${dataIf}><span class="field-label">${esc(f.label)}</span>${linkRow(f.k, v, f.ph)}</div>`;
   if (f.type === "select") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><select ${attrs}>${f.opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
   if (f.type === "checkbox") return `<label class="${cls} check"${dataIf}><input type="checkbox" name="${f.k}" ${v ? "checked" : ""}><span>${esc(f.label)}</span></label>`;
   return `<label class="${cls}"${dataIf}><span>${esc(f.label)}${f.req ? ' <em class="req">*</em>' : ""}</span><input type="${f.type}" ${attrs} value="${esc(v)}" ${f.list ? `list="${f.list}"` : ""}></label>`;
@@ -366,7 +477,7 @@ function tickDialog(id) {
     <form class="form" id="tick-form" autocomplete="off">
       <p class="tick-q"><strong>Did this task produce something we can link to?</strong><br>
         <span class="muted">A note on the hub, a Drive file, a finding, slides… It's shown next to the task on Past work, so anyone (Valentin included) can see what it delivered.</span></p>
-      <label class="field"><span>Link to the output</span><input type="url" name="output" placeholder="https://…"></label>
+      <div class="field"><span class="field-label">Link to the output</span>${linkRow("output")}</div>
       <p class="form-error" hidden></p>
       <div class="tick-actions">
         <button class="btn primary" type="submit">✓ Add link and mark done</button>
@@ -759,7 +870,7 @@ function viewNotes() {
 }
 
 // Shared Google Drive folder with all downloaded + cleaned data (access: invited teammates only).
-const DATA_DRIVE_URL = "https://drive.google.com/drive/folders/1D73e04DwqlUc9RZlXp4l5BQ_n7mzED1f?usp=drive_link";
+const DATA_DRIVE_URL = DRIVE_FOLDER_URL;
 const SITE_URL = "https://erkiterki.github.io/poland-democracy/";
 const AGENT_PROMPT = `Please set me up with my team's shared project hub. Read ${SITE_URL}AGENT_SETUP.md and follow every step in it.`;
 
@@ -787,6 +898,18 @@ function viewGuide() {
         ${step(3, "Create a token (a password just for this site)", `<p><a href="${TOKEN_URL}" target="_blank" rel="noopener">Click here</a>. GitHub opens with everything already filled in.</p>
           <ul><li>Choose an <b>Expiration</b> (90 days is fine).</li><li>Scroll down and click the green <b>Generate token</b> button.</li><li><b>Copy</b> the code that starts with <code>ghp_</code>. GitHub only shows it once.</li></ul>`)}
         ${step(4, "Connect", `<p>Click <button class="btn inline-btn" id="auth-btn-guide" data-connect><span class="auth-dot"></span> Connect to edit</button> (also at the top right of every page). Paste the code, type your name, and click <b>Connect</b>. Done.</p>`)}
+      </ol>
+    </div>
+
+    <h2 class="section-title g-h" id="g-files">Files: PDFs, slides, spreadsheets</h2>
+    <div class="card g-card">
+      <p class="g-lead">Files go in our <a href="${DRIVE_FOLDER_URL}" target="_blank" rel="noopener">team Google Drive folder</a>, which only we can open. The hub stores just the link. That keeps our drafts private and keeps copyrighted papers off a public site.</p>
+      <ol class="g-steps">
+        ${step(1, "Find the link field", `<p>Every place that asks for a link (a task's output, a finding's evidence, a paper, a note) has a Drive button next to it.</p>`)}
+        ${step(2, pickerOn() ? "Choose from Drive" : "Open the Drive and copy the link", pickerOn()
+          ? `<p>Click <b>Choose from Drive</b>, then pick the file, or upload it from your computer in the <em>Upload</em> tab. The link fills in by itself.</p>`
+          : `<p>Click <b>Open team Drive</b>, drop your file in, then on the file click <b>Share → Copy link</b>.</p>`)}
+        ${step(3, pickerOn() ? "Save" : "Paste and save", pickerOn() ? `<p>Save the form as usual.</p>` : `<p>Back on the hub, click <b>Paste link</b> and save. (Want the link to fill in by itself? One teammate can switch that on in 10 minutes: see <a href="DRIVE_SETUP.md" target="_blank" rel="noopener">DRIVE_SETUP.md</a>.)</p>`)}
       </ol>
     </div>
 
@@ -822,6 +945,8 @@ document.addEventListener("click", (e) => {
   const jump = e.target.closest('a[href^="#g-"]');
   if (jump) { e.preventDefault(); document.querySelector(jump.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" }); return; }
   if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
+  const driveBtn = e.target.closest("[data-drive]");
+  if (driveBtn) { e.preventDefault(); return driveAction(driveBtn); }
   const el = e.target.closest("[data-ftype],[data-fowner],[data-finding],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
