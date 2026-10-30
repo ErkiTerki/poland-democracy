@@ -11,9 +11,9 @@ const editUrl = (item) => `${GH}/edit/main/${item.path}`;
 // None of these values is a secret: Google restricts them to this website.
 const DRIVE = {
   folderId: "1D73e04DwqlUc9RZlXp4l5BQ_n7mzED1f",
-  apiKey: "",
-  clientId: "",
-  appId: "", // the Google Cloud project NUMBER
+  apiKey: "AIzaSyBo-rZMa8-3S8tc7PUxUO3b-dvg5sfjFb4",
+  clientId: "54514463476-afo55rd8063einl1an42h39gl3rph9hb.apps.googleusercontent.com",
+  appId: "54514463476", // the Google Cloud project NUMBER
 };
 const DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DRIVE.folderId}`;
 const pickerOn = () => !!(DRIVE.apiKey && DRIVE.clientId);
@@ -63,7 +63,7 @@ async function pickFromDrive() {
   try {
     return await new Promise((ok) => {
       const P = google.picker;
-      const browse = new P.DocsView(P.ViewId.DOCS).setParent(DRIVE.folderId).setIncludeFolders(true);
+      const browse = new P.DocsView(P.ViewId.DOCS).setParent(DRIVE.folderId).setIncludeFolders(true).setMode(P.DocsViewMode.LIST);
       const upload = new P.DocsUploadView().setParent(DRIVE.folderId).setIncludeFolders(true);
       const b = new P.PickerBuilder()
         .addView(browse).addView(upload)
