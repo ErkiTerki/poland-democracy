@@ -25,11 +25,16 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 
 | Collection | Filename | Fields |
 |---|---|---|
-| tasks | `short-name.md` | title, status (`todo`/`doing`/`done`), owner, due (YYYY-MM-DD) |
+| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it) |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
 | papers | `short-title.md` | title, url, status (`to-read`/`reading`/`summarised`). Body = notes |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
+
+How the Tasks page reads them: open tasks are grouped into rounds by due date. A task owned by `Everyone` is the
+shared goal of its round: it heads the group, and individual tasks due up to 7 days before it sit under it. So give tasks
+that belong to the same round the same due date (or one up to a week before the shared task). Done tasks move to
+**Past work** (`#past`), a timeline grouped the same way. There is no `doing` status any more (old files with it count as open).
 
 The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
 Events appear on the Overview calendar. `board` events also drive the countdown.
