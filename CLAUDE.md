@@ -60,6 +60,11 @@ haven't been given the text of.
   Country-level patterns don't tell you how individuals voted (ecological fallacy). Use ESS for claims about individuals.
 - Every number on the site carries its source and version.
 
+## Files (PDFs, slides, spreadsheets)
+Files live in the team's private Google Drive folder, never in this repo. Content files only store the file's Drive link
+(task `output`, finding `link`, paper `url`, or a Markdown link in a note). The site's link fields have Drive buttons
+for this; `DRIVE_SETUP.md` explains how to switch on the automatic Drive picker.
+
 ## Public repo: never commit
 - Personal data, phone numbers, or private notes about people.
 - Paper PDFs (link instead).
