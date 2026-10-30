@@ -472,25 +472,17 @@ function pageHead(eyebrow, title, sub, action) {
   return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1 class="page-title">${title}</h1>${sub ? `<p class="page-sub">${sub}</p>` : ""}</div>${action || ""}</div>`;
 }
 
-// Group tasks into "rounds": each Everyone task is the umbrella for the individual tasks due in the
-// week up to its own deadline; any other task joins the group of its own due date.
+// Group tasks by due date. Within a date, any Everyone task is the shared goal that heads that date's tasks.
 function rounds(tasks) {
   const groups = new Map();
-  const group = (date) => {
-    const k = date || "undated";
-    if (!groups.has(k)) groups.set(k, { date, lead: [], items: [] });
-    return groups.get(k);
-  };
-  for (const t of tasks.filter((t) => isTeam(t.owner))) group(t.due).lead.push(t);
-  const umbrellaDates = [...groups.values()].filter((g) => g.date).map((g) => g.date).sort();
-  for (const t of tasks.filter((t) => !isTeam(t.owner))) {
-    const home = t.due && umbrellaDates.find((d) => d >= t.due && daysBetween(t.due, d) <= 7);
-    group(home || t.due).items.push(t);
+  for (const t of tasks) {
+    const k = t.due || "undated";
+    if (!groups.has(k)) groups.set(k, { date: t.due || null, lead: [], items: [] });
+    groups.get(k)[isTeam(t.owner) ? "lead" : "items"].push(t);
   }
   for (const g of groups.values()) {
-    g.items.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || String(a.owner).localeCompare(String(b.owner)));
+    g.items.sort((a, b) => String(a.owner).localeCompare(String(b.owner)) || a.title.localeCompare(b.title));
     g.lead.sort((a, b) => a.title.localeCompare(b.title));
-    g.date = g.date || [...g.lead, ...g.items].map((t) => t.due).filter(Boolean).sort().pop() || null;
   }
   return [...groups.values()];
 }
@@ -519,7 +511,7 @@ function ownerFilter(tasks) {
 function taskCard(t, groupDate) {
   const today = todayIso();
   const late = t.due && t.due < today;
-  const showDue = t.due && (t.due !== groupDate || late);
+  const showDue = late;
   const team = isTeam(t.owner);
   return `<div class="card task${team ? " umbrella" : ""}" data-task="${esc(t.id)}" role="button" tabindex="0">
     <button class="tick" data-tick="${esc(t.id)}" aria-label="Mark “${esc(t.title)}” as done" title="Mark as done"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg></button>
