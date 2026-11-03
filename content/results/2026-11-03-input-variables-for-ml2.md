@@ -1,5 +1,6 @@
 ---
 title: Input variables for ML2
+task: ml-research
 type: prediction
 source: N/A
 owner: Erik

@@ -25,11 +25,11 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 
 | Collection | Filename | Fields |
 |---|---|---|
-| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it), output (done tasks only: URL of what the task produced, e.g. a note, Drive file or finding; `none` if there is nothing to link; leave it off open tasks) |
+| tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it). Old done tasks may still carry `output` (a single link): leave it, but don't add it any more. What a task produced goes in `results` |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
-| findings | `short-claim.md` | title (the finding: one sentence with its number), type (`description`/`prediction`/`causal`), source (dataset or paper **with version**, e.g. "V-Dem v16 (Coppedge et al. 2026), v2x_libdem"), owner, date (YYYY-MM-DD), link (optional URL to the evidence). Body = caveats: uncertainty, coverage, what it does NOT show |
+| results | `YYYY-MM-DD-short-summary.md` | title (**required**: the result summarised in words, one or two sentences, with its numbers and their source + version), task (filename stem of the task it answers, without `.md`, or `general`), owner (who produced it), date (YYYY-MM-DD, the day it was recorded), link (optional: URL of the document, e.g. a Drive file or a note). Body = optional details and caveats: uncertainty, coverage, what it does NOT show |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
-| papers | `short-title.md` | title, url, owner (first name of whoever added it), task (filename stem of the task it's for, without `.md`, or `general`). Body = optional notes. The page groups readings by that task's due date. The Literature page is a plain library: no reading status, and findings go in `findings`, not here |
+| papers | `short-title.md` | title, url, owner (first name of whoever added it), task (filename stem of the task it's for, without `.md`, or `general`). Body = optional notes. The page groups readings by that task's due date. The Literature page is a plain library: no reading status, and conclusions go in `results`, not here |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
 
 How the Tasks page reads them: open tasks are grouped strictly by due date (one group per date). A task owned by
@@ -37,8 +37,14 @@ How the Tasks page reads them: open tasks are grouped strictly by due date (one 
 under it. So give tasks that belong to the same round the same due date. Done tasks move to
 **Past work** (`#past`), a timeline grouped the same way. There is no `doing` status any more (old files with it count as open).
 
-Findings are the team's evidence log. Mark a finding `causal` only if it comes from a design that rules out other
-explanations; a correlation or a co-occurrence in time is a `description`, and its body should say so.
+**Results** are what each task produced. **Marking a task done always comes with a result**: when you set a task to
+`done`, also create a `results` file with `task:` set to that task and a `title` summarising the outcome in words (add
+`link:` if there's a document). Ask your human for the summary if you don't have it; never invent one. A result can
+also be added on its own (`task:` set, task left as it is): adding a result never ticks its task, and reopening a task
+never deletes its results. The Results page groups results by `date` (newest first), then by task.
+In a result's wording, keep description, prediction and causal claims apart: a correlation or a co-occurrence in time
+is a description, and the summary or body should say so. (Older results migrated from the old Findings page may still
+carry `type` and `source` fields; keep them.)
 
 The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
 Events appear on the Overview calendar. `board` events also drive the countdown.
@@ -60,7 +66,7 @@ Paper notes go in the body and are optional. Never invent a summary of a paper y
 
 ## Files (PDFs, slides, spreadsheets)
 Files live in the team's private Google Drive folder, never in this repo. Content files only store the file's Drive link
-(task `output`, finding `link`, paper `url`, or a Markdown link in a note). The site's link fields have Drive buttons
+(result `link`, paper `url`, or a Markdown link in a note; old tasks may have an `output`). The site's link fields have Drive buttons
 for this; `DRIVE_SETUP.md` explains how to switch on the automatic Drive picker.
 
 ## Public repo: never commit

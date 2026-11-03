@@ -154,7 +154,8 @@ const STATUS = {
 };
 const isDone = (t) => t.status === "done";
 const hasOutput = (t) => !!t.output && t.output !== "none";
-// The brief's rule: keep description, prediction and causal claims apart.
+const RESULT_PH = "e.g. V-Dem v16: Poland's liberal democracy index fell 2015–2022 and rose again in 2024, beyond the uncertainty interval. Description, not a cause.";
+// Old findings carried one of these types. New results don't ask for it; the chip still shows on old ones.
 const FINDING_TYPES = {
   description: { label: "Description", chip: "slate", hint: "What the data shows happened." },
   prediction: { label: "Prediction", chip: "amber", hint: "What is likely to happen next." },
@@ -172,9 +173,10 @@ const FORMS = {
     noun: "task", dir: "content/tasks", order: ["title", "status", "owner", "due", "completed", "output"],
     base: (f) => slug(f.title),
     // `completed` = the day a task was ticked; it dates the entry on the Past work timeline.
-    // `output` = link to what a finished task produced, or "none". It only exists on done tasks.
+    // What a finished task produced lives in `results` (one file per result, linked back by `task`).
+    // `output` is the old single-link field: still shown on old tasks, no longer written.
     stamp: (f) => {
-      if (f.status === "done") { f.completed = f.completed || todayIso(); f.output = f.output || "none"; }
+      if (f.status === "done") f.completed = f.completed || todayIso();
       else { delete f.completed; delete f.output; }
     },
     fields: [
@@ -182,7 +184,9 @@ const FORMS = {
       { k: "status", label: "Status", type: "select", half: true, def: "todo", opts: [["todo", "To do"], ["done", "Done"]] },
       { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
-      { k: "output", label: "Output: link to what this task produced (leave empty if there is none)", type: "url", drive: true, ph: "https://… (a Drive file, a note, a finding, slides…)", showIf: "status", showIfValue: "done" },
+      // Only when a task becomes done: its result, saved as a new file in Results (not on the task itself).
+      { k: "_result", label: "Result: what came out of this task? (required to mark it done)", type: "textarea", rows: 3, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: RESULT_PH },
+      { k: "_resultLink", label: "Link to the document (optional)", type: "url", drive: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: "https://… (a Drive file, a note, slides…)" },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
   },
@@ -200,17 +204,16 @@ const FORMS = {
       { k: "body", label: "Notes", type: "textarea", ph: "Agenda, who's going, links…" },
     ],
   },
-  findings: {
-    noun: "finding", dir: "content/findings", order: ["title", "type", "source", "owner", "date", "link"],
-    base: (f) => slug(f.title),
+  results: {
+    noun: "result", dir: "content/results", order: ["title", "task", "owner", "date", "link"],
+    base: (f) => `${f.date || todayIso()}-${slug(f.title)}`,
     fields: [
-      { k: "title", label: "Finding: one sentence, with the number", type: "text", req: true, ph: "e.g. Turnout rose from 50.9% (2015) to 74.4% (2023)" },
-      { k: "type", label: "Type", type: "select", half: true, def: "description", opts: [["description", "Description: what happened"], ["prediction", "Prediction: what's likely next"], ["causal", "Causal: what made it happen"]] },
-      { k: "owner", label: "Found by", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
-      { k: "source", label: "Source and version", type: "text", req: true, ph: "e.g. V-Dem v16 (Coppedge et al. 2026), v2x_libdem" },
+      { k: "title", label: "Result: a short summary, in words, of what came out", type: "textarea", rows: 3, req: true, ph: RESULT_PH },
+      { k: "task", label: "Which task does it answer?", type: "select", req: true, opts: resultTaskOptions },
+      { k: "owner", label: "By", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "date", label: "Date", type: "date", half: true, def: () => todayIso() },
-      { k: "link", label: "Evidence: link to the chart, file or note", type: "url", drive: true },
-      { k: "body", label: "Caveats and details: uncertainty, coverage, what it does NOT show", type: "textarea", rows: 6 },
+      { k: "link", label: "Link to the document (optional)", type: "url", drive: true, ph: "https://… (a Drive file, a note, slides…)" },
+      { k: "body", label: "Details (optional): caveats, sources and versions, what it does NOT show", type: "textarea", rows: 5 },
     ],
   },
   datasets: {
@@ -231,7 +234,7 @@ const FORMS = {
       { k: "url", label: "Link: DOI or publisher page, or the PDF in our Drive", type: "url", drive: true, ph: "https://…" },
       { k: "owner", label: "Added by", type: "text", list: "owners", def: () => Store.auth?.name || "" },
       { k: "task", label: "For which task?", type: "select", req: true, opts: taskOptions },
-      { k: "body", label: "Notes (optional)", type: "textarea", rows: 6, ph: "Why it's useful, which part to read… Findings go in Findings." },
+      { k: "body", label: "Notes (optional)", type: "textarea", rows: 6, ph: "Why it's useful, which part to read… What you concluded goes in Results." },
     ],
   },
   notes: {
@@ -254,7 +257,7 @@ const FORMS = {
 };
 
 let SITE = null;
-const view = { calY: null, calM: null, owner: "", author: "", fType: "", fOwner: "" };
+const view = { calY: null, calM: null, owner: "", author: "" };
 
 // ---------- helpers ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -299,13 +302,14 @@ function toast(msg, kind = "ok") {
   setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, kind === "err" ? 7000 : 4200);
 }
 
-function viewModal({ title, facts = "", body = "", link, linkLabel = "Open source ↗", accent = true, actions = "", edit }) {
+function viewModal({ title, facts = "", body = "", link, linkLabel = "Open source ↗", accent = true, actions = "", edit, extra = "" }) {
   showModal(`
     <div class="modal-top ${accent ? "" : "neutral"}"></div>
     <h2 class="modal-title" id="modal-title">${esc(title)}</h2>
     <div class="modal-facts">${facts}</div>
     ${actions ? `<div class="quick">${actions}</div>` : ""}
     <div class="modal-body prose">${body ? md(body) : '<p class="muted">No details yet.</p>'}</div>
+    ${extra}
     <div class="modal-foot">
       <span class="foot-links">${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(linkLabel)}</a>` : ""}
         ${edit ? `<a class="edit-link" href="${editUrl(edit.item)}" target="_blank" rel="noopener">View file on GitHub</a>` : ""}</span>
@@ -403,6 +407,7 @@ async function openForm(collection, id, defaults = {}) {
       current = r.item; sha = r.sha;
     } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
   }
+  const shown = spec.fields.filter((f) => !f.onlyIf || f.onlyIf(current));
   const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
     if (current) return current[f.k];
@@ -413,7 +418,7 @@ async function openForm(collection, id, defaults = {}) {
     <div class="modal-top"></div>
     <h2 class="modal-title">${isNew ? "New " + spec.noun : "Edit " + spec.noun}</h2>
     <form class="form" id="item-form" autocomplete="off">
-      <div class="fgrid">${spec.fields.map((f) => fieldHtml(f, values(f))).join("")}</div>
+      <div class="fgrid">${shown.map((f) => fieldHtml(f, values(f))).join("")}</div>
       <datalist id="owners">${owners.map((o) => `<option value="${esc(o)}">`).join("")}</datalist>
       <p class="form-error" hidden></p>
       <div class="modal-foot">
@@ -434,24 +439,35 @@ async function openForm(collection, id, defaults = {}) {
     e.preventDefault();
     const btn = form.querySelector("[type=submit]");
     const fields = current ? { ...current } : {};
-    for (const f of spec.fields) {
+    const extra = {};
+    for (const f of shown) {
       const el = form.elements[f.k];
       let v = f.type === "checkbox" ? (el.checked ? f.value : "") : el.value.trim();
       if (f.showIf && !condOn(f.showIf, f.showIfValue)) v = "";
+      if (f.virtual) { extra[f.k] = v; continue; }
       if (v === "" && f.k !== "body") delete fields[f.k]; else fields[f.k] = v;
     }
     delete fields.id; delete fields.path;
+    // A task can only become done together with a written result.
+    const newlyDone = collection === "tasks" && fields.status === "done" && (!current || current.status !== "done");
+    if (newlyDone && !extra._result) {
+      form.elements._result?.focus();
+      return fail("To mark the task done, write a short summary of its result. You can add a link to the document too.");
+    }
     spec.stamp?.(fields);
     const text = Store.serialize(fields, spec.order);
     btn.disabled = true; btn.textContent = "Saving…";
+    let made = null;
     try {
       const path = spec.fixedPath || (current ? current.path : await Store.uniquePath(spec.dir, spec.base(fields)));
       const who = Store.auth.login;
+      if (newlyDone) made = await saveResult({ summary: extra._result, link: extra._resultLink, taskId: idOf(path), taskOwner: fields.owner });
       await Store.write(path, text, `${collection}: ${isNew ? "add" : "update"} "${fields.title}" (via site, @${who})`, sha);
       applyLocal(collection, path, Store.parse(text, path));
       modal.close();
-      toast(`<strong>Saved.</strong> Live for everyone in about a minute.`);
+      toast(`<strong>Saved${newlyDone ? ", with its result" : ""}.</strong> Live for everyone in about a minute.`);
     } catch (err) {
+      if (made) await dropResult(made);
       btn.disabled = false; btn.textContent = isNew ? "Add " + spec.noun : "Save changes";
       if (err.status === 401) { Store.disconnect(); renderAuth(); return fail("Your token was rejected (expired?). Connect again."); }
       fail(err.message);
@@ -471,61 +487,92 @@ async function openForm(collection, id, defaults = {}) {
   });
 }
 
-async function quickStatus(id, status, output) {
+const idOf = (path) => path.split("/").pop().replace(/\.md$/, "");
+const resultsFor = (taskId) => (SITE.results || []).filter((r) => r.task === taskId)
+  .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || a.title.localeCompare(b.title));
+
+// Writes one result file for a task. Returns its path. Who: the task's owner, or whoever saves it for a shared task.
+async function saveResult({ summary, link, taskId, taskOwner }) {
+  const spec = FORMS.results;
+  const fields = { title: summary, task: taskId, owner: taskOwner && !isTeam(taskOwner) ? taskOwner : Store.auth.name, date: todayIso(), body: "" };
+  if (link) fields.link = link;
+  const text = Store.serialize(fields, spec.order);
+  const path = await Store.uniquePath(spec.dir, spec.base(fields));
+  await Store.write(path, text, `results: add "${excerpt(summary, 60)}" (via site, @${Store.auth.login})`);
+  applyLocal("results", path, Store.parse(text, path));
+  return path;
+}
+async function dropResult(path) {
+  try { await Store.remove(path, `results: remove "${idOf(path)}" (undo, via site, @${Store.auth.login})`); applyLocal("results", path, null); }
+  catch (e) { toast(`Couldn't remove the result: ${esc(e.message)}`, "err"); }
+}
+
+async function quickStatus(id, status, resultPath) {
   const t = find("tasks", id);
   if (!t) return;
   const busy = document.querySelector(`[data-tick="${CSS.escape(id)}"]`);
   if (busy) busy.classList.add("busy");
   try {
     const r = await Store.read(t.path);
-    if (!r) return toast("That task no longer exists.", "err");
+    if (!r) { if (resultPath) await dropResult(resultPath); return toast("That task no longer exists.", "err"); }
     const fields = { ...r.item, status };
     delete fields.id; delete fields.path;
-    if (status === "done") fields.output = output || "none";
     FORMS.tasks.stamp(fields);
     const text = Store.serialize(fields, FORMS.tasks.order);
     await Store.write(t.path, text, `tasks: "${fields.title}" → ${status} (via site, @${Store.auth.login})`, r.sha);
     applyLocal("tasks", t.path, Store.parse(text, t.path));
     if (modal.open) modal.close();
-    const undo = `<button class="toast-undo" data-status="${status === "done" ? "todo" : "done"}" data-id="${esc(id)}">Undo</button>`;
-    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work${hasOutput(fields) ? ", with its output" : ""}. ${undo}` : `Back on the to-do list. ${undo}`);
-  } catch (err) { if (busy) busy.classList.remove("busy"); toast(esc(err.message), "err"); }
+    // Undoing a tick also removes the result it created.
+    const undo = `<button class="toast-undo" data-status="${status === "done" ? "todo" : "done"}" data-id="${esc(id)}"${resultPath ? ` data-undo-result="${esc(resultPath)}"` : ""}>Undo</button>`;
+    toast(status === "done" ? `<strong>Done.</strong> Moved to Past work${resultPath ? ', and its result is in <a href="#results">Results</a>' : ""}. ${undo}` : `Back on the to-do list. Its results stay in Results. ${undo}`);
+  } catch (err) {
+    if (busy) busy.classList.remove("busy");
+    if (resultPath) await dropResult(resultPath);
+    toast(esc(err.message), "err");
+  }
 }
 
-// Ticking a task asks for its output before it moves to Past work.
+// Ticking a task asks for its result (a written summary, required) and optionally a link to the document.
+// The result is saved in Results, linked to the task; then the task moves to Past work.
 function tickDialog(id) {
   const t = find("tasks", id);
   if (!t) return;
+  const prior = resultsFor(id);
   showModal(`
     <div class="modal-top"></div>
     <h2 class="modal-title" id="modal-title">Mark as done</h2>
     <p class="tick-task">${esc(t.title)}</p>
     <form class="form" id="tick-form" autocomplete="off">
-      <p class="tick-q"><strong>Did this task produce something we can link to?</strong><br>
-        <span class="muted">A note on the hub, a Drive file, a finding, slides… It's shown next to the task on Past work, so anyone (Valentin included) can see what it delivered.</span></p>
-      <div class="field"><span class="field-label">Link to the output</span>${linkRow("output")}</div>
+      <p class="tick-q"><strong>What came out of this task?</strong><br>
+        <span class="muted">Summarise the result in a sentence or two: what you found or produced, with its numbers and sources. It goes to Results, under this task, so the whole team (Valentin included) can read it.</span></p>
+      ${prior.length ? `<p class="tick-prior muted">Already in Results for this task: ${prior.map((r) => `“${esc(excerpt(r.title, 80))}”`).join(", ")}. Add the overall result here.</p>` : ""}
+      <label class="field"><span>Result summary <em class="req">*</em></span><textarea name="summary" rows="4" placeholder="${esc(RESULT_PH)}"></textarea></label>
+      <div class="field"><span class="field-label">Link to the document (optional)</span>${linkRow("link", "", "https://… (a Drive file, a note, slides…)")}</div>
       <p class="form-error" hidden></p>
       <div class="tick-actions">
-        <button class="btn primary" type="submit">✓ Add link and mark done</button>
-        <button class="btn" type="button" data-nooutput>No output to link: mark done</button>
+        <button class="btn primary" type="submit">✓ Save result and mark done</button>
         <button class="btn ghost" type="button" data-close>Cancel</button>
       </div>
     </form>`);
   const form = document.getElementById("tick-form");
   const err = form.querySelector(".form-error");
-  const finish = async (output, btn) => {
+  form.elements.summary.focus();
+  form.addEventListener("input", () => { err.hidden = true; });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const summary = form.elements.summary.value.trim();
+    if (!summary) { err.hidden = false; err.textContent = "Write a short summary of the result first. The link is optional."; form.elements.summary.focus(); return; }
+    const btn = form.querySelector("[type=submit]");
     form.querySelectorAll("button").forEach((b) => (b.disabled = true));
     btn.textContent = "Saving…";
-    await quickStatus(id, "done", output);
-  };
-  form.querySelector("input").focus();
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const url = form.elements.output.value.trim();
-    if (!url) { err.hidden = false; err.textContent = "Paste a link, or choose \"No output to link\"."; return; }
-    finish(url, form.querySelector("[type=submit]"));
+    let path;
+    try { path = await saveResult({ summary, link: form.elements.link.value.trim(), taskId: id, taskOwner: t.owner }); }
+    catch (ex) {
+      form.querySelectorAll("button").forEach((b) => (b.disabled = false)); btn.textContent = "✓ Save result and mark done";
+      err.hidden = false; err.textContent = ex.status === 401 ? "Your token was rejected (expired?). Connect again." : ex.message; return;
+    }
+    await quickStatus(id, "done", path);
   });
-  form.querySelector("[data-nooutput]").addEventListener("click", (e) => finish("", e.currentTarget));
 }
 
 function applyLocal(collection, path, item) {
@@ -654,7 +701,7 @@ function viewOverview() {
 
     <div class="stats">
       <a class="card stat" href="#tasks"><span class="n">${openTasks}</span><span class="l">open tasks</span></a>
-      <a class="card stat" href="#findings"><span class="n">${(SITE.findings || []).length}</span><span class="l">findings</span></a>
+      <a class="card stat" href="#results"><span class="n">${(SITE.results || []).length}</span><span class="l">results</span></a>
       <a class="card stat" href="#datasets"><span class="n">${SITE.datasets.length}</span><span class="l">datasets</span></a>
       <a class="card stat" href="#papers"><span class="n">${SITE.papers.length}</span><span class="l">readings</span></a>
     </div>
@@ -756,7 +803,7 @@ function viewTasks() {
 function viewPast() {
   const done = SITE.tasks.filter(isDone);
   const back = `<a class="btn" href="#tasks">← Back to tasks</a>`;
-  const head = pageHead("Track record", "Past work", "Every finished task, grouped by the deadline it was set for: who owned what, and when it was ticked off.", back);
+  const head = pageHead("Track record", "Past work", "Every finished task, grouped by the deadline it was set for: who owned what, when it was ticked off, and its results.", back);
   if (!done.length) return `${head}<div class="empty"><h3>Nothing finished yet</h3><p>Tick a task on the Tasks page and it lands here, on the timeline.</p>${back}</div>`;
   const filter = ownerFilter(done);
   const shown = done.filter(filter.keep);
@@ -767,7 +814,7 @@ function viewPast() {
       <span class="past-check" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7"/></svg></span>
       <span class="past-title">${isTeam(t.owner) ? '<span class="umbrella-tag">Shared goal</span>' : ""}${esc(t.title || t.id)}</span>
       <span class="past-who">${who(t.owner)}</span>
-      <span class="past-out">${hasOutput(t) ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : t.output === "none" ? '<span class="no-out">No output</span>' : `<button class="add-out" data-edit="tasks" data-id="${esc(t.id)}" title="Link what this task produced">+ Output</button>`}</span>
+      <span class="past-out">${((n) => n ? `<a class="out-link" href="#results">${n} result${n === 1 ? "" : "s"} →</a>` : hasOutput(t) ? `<a class="out-link" href="${esc(t.output)}" target="_blank" rel="noopener">Output ↗</a>` : `<button class="add-out" data-add="results" data-for-task="${esc(t.id)}" title="Write what this task produced">+ Result</button>`)(resultsFor(t.id).length)}</span>
       <span class="past-when">${t.completed ? "Done " + fmtDate(t.completed, { day: "numeric", month: "short" }) : ""}</span>
     </div>`;
   return `${head}
@@ -791,33 +838,55 @@ function viewPast() {
     }).join("")}</ol>`;
 }
 
-function viewFindings() {
-  const add = addBtn("findings", "+ Add finding");
-  const head = pageHead("Evidence", "Findings", "What our data shows so far. Every finding names its source and version, and says whether it describes, predicts or claims a cause.", SITE.findings.length ? add : "");
-  const legend = `<div class="f-legend">${Object.values(FINDING_TYPES).map((t) => `<span>${chip(t.label, t.chip)} ${esc(t.hint)}</span>`).join("")}</div>`;
-  if (!SITE.findings.length) return `${head}${legend}<div class="empty"><h3>No findings yet</h3><p>Log the first thing the data told you: one sentence, the number, and its source.</p>${add}</div>`;
-  const owners = [...new Set(SITE.findings.map((f) => f.owner).filter(Boolean))].sort();
-  if (view.fOwner && !owners.includes(view.fOwner)) view.fOwner = "";
-  const items = SITE.findings
-    .filter((f) => !view.fType || (FINDING_TYPES[f.type] ? f.type : "description") === view.fType)
-    .filter((f) => !view.fOwner || f.owner === view.fOwner)
-    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")) || a.title.localeCompare(b.title));
-  const seg = (attr, cur, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button ${attr}="${esc(v)}" class="${cur === v ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
-  return `${head}${legend}
-    <div class="toolbar">
-      ${seg("data-ftype", view.fType || "", [["", "All types"], ...Object.entries(FINDING_TYPES).map(([k, t]) => [k, t.label])])}
-      ${owners.length > 1 ? seg("data-fowner", view.fOwner || "", [["", "All"], ...owners.map((o) => [o, o])]) : ""}
-    </div>
-    <div class="findings">${items.map((f) => {
-      const t = FINDING_TYPES[f.type] || FINDING_TYPES.description;
-      return `<div class="card finding ${esc(f.type || "description")}" data-finding="${esc(f.id)}" role="button" tabindex="0">
-        <div class="f-top">${chip(t.label, t.chip)}${f.date ? `<span class="f-date">${fmtDate(f.date, { day: "numeric", month: "short", year: "numeric" })}</span>` : ""}</div>
-        <div class="f-claim">${esc(f.title)}</div>
-        <div class="f-source">${f.source ? `<span class="f-label">Source</span> ${esc(f.source)}` : '<span class="chip red">No source yet</span>'}</div>
-        ${f.body ? `<p class="f-caveat">${esc(excerpt(f.body, 150))}</p>` : ""}
-        <div class="f-foot">${who(f.owner)}${f.link ? `<a class="out-link" href="${esc(f.link)}" target="_blank" rel="noopener">Evidence ↗</a>` : ""}</div>
-      </div>`;
-    }).join("") || '<div class="col-empty">No findings match these filters.</div>'}</div>`;
+// Results: what each task produced. Grouped by date, then by the task each result answers.
+function viewResults() {
+  const add = addBtn("results", "+ Add result");
+  const all = SITE.results || [];
+  const head = pageHead("Outcomes", "Results", "What each task produced: a short summary in words, under the task it answers, with its document when there is one. Ticking a task adds its result here; you can also add one directly (that doesn't tick the task).", all.length ? add : "");
+  if (!all.length) return `${head}<div class="empty"><h3>No results yet</h3><p>Tick a finished task on the Tasks page and write what came out of it, or add a result here.</p>${add}</div>`;
+  const filter = ownerFilter(all);
+  const byDate = new Map();
+  for (const r of all.filter(filter.keep)) {
+    const k = r.date || "";
+    if (!byDate.has(k)) byDate.set(k, new Map());
+    const tk = SITE.tasks.some((t) => t.id === r.task) ? r.task : "general";
+    const g = byDate.get(k);
+    if (!g.has(tk)) g.set(tk, []);
+    g.get(tk).push(r);
+  }
+  const dates = [...byDate.keys()].sort((a, b) => (b || "0000").localeCompare(a || "0000"));
+  const taskRank = (id) => { const t = SITE.tasks.find((x) => x.id === id); return t ? `${isTeam(t.owner) ? 0 : 1}${t.due || "9999"}${t.title}` : "z"; };
+  const item = (r, taskOwner) => `<div class="r-item" data-result="${esc(r.id)}" role="button" tabindex="0">
+      <div class="r-sum">${esc(r.title)}</div>
+      <div class="r-meta">${r.link ? `<a class="out-link r-doc" href="${esc(r.link)}" target="_blank" rel="noopener">Open document ↗</a>` : '<span class="no-out">No document attached</span>'}
+        ${r.owner && r.owner !== taskOwner ? who(r.owner) : ""}${r.type && FINDING_TYPES[r.type] ? chip(FINDING_TYPES[r.type].label, FINDING_TYPES[r.type].chip) : ""}${r.body ? '<span class="has-notes" title="Has details">Details</span>' : ""}</div>
+    </div>`;
+  const taskBlock = (tid, list) => {
+    const t = SITE.tasks.find((x) => x.id === tid);
+    const head = t
+      ? `<div class="r-task-head" data-task="${esc(t.id)}" role="button" tabindex="0">
+          <span class="r-for">Task${t.due ? " due " + fmtDate(t.due, { day: "numeric", month: "short" }) : ""}</span>
+          <span class="r-task-title">${esc(t.title)}</span>
+          <span class="r-task-meta">${who(t.owner)}${chip(isDone(t) ? "Done" : "Still open", isDone(t) ? "green" : "")}</span>
+        </div>`
+      : `<div class="r-task-head general"><span class="r-for">Not tied to a task</span><span class="r-task-title">General</span></div>`;
+    return `<div class="r-task">${head}<div class="r-items">${list.map((r) => item(r, t?.owner)).join("")}</div></div>`;
+  };
+  return `${head}${filter.html}
+    <ol class="timeline">${dates.map((k) => {
+      const d = k ? parseDate(k) : null;
+      const g = byDate.get(k);
+      const n = [...g.values()].reduce((a, l) => a + l.length, 0);
+      const tids = [...g.keys()].sort((a, b) => taskRank(a).localeCompare(taskRank(b)));
+      return `<li class="tl-item">
+        <div class="tl-date">${d ? `<b>${d.getDate()}</b><span>${MONTHS[d.getMonth()].slice(0, 3)} ${d.getFullYear()}</span>` : "<span>No date</span>"}</div>
+        <div class="tl-dot" aria-hidden="true"></div>
+        <div class="card tl-card">
+          <div class="tl-head"><span>${d ? fmtDate(k, { weekday: "long", day: "numeric", month: "long" }) : "Undated"}</span><span class="muted">${n} result${n === 1 ? "" : "s"} · ${tids.length} task${tids.length === 1 ? "" : "s"}</span></div>
+          ${tids.map((tid) => taskBlock(tid, g.get(tid).sort((a, b) => a.title.localeCompare(b.title)))).join("")}
+        </div>
+      </li>`;
+    }).join("")}</ol>`;
 }
 
 const rowsHtml = (items, rowFn) => `<div class="card rows">${items.map(rowFn).join("")}</div>`;
@@ -853,6 +922,16 @@ function taskOptions(current) {
   return [["", "Choose a task…"],
     ...tasks.map((t) => [t.id, `${t.due ? fmtDate(t.due, { day: "numeric", month: "short" }) + " · " : ""}${isTeam(t.owner) ? "Everyone" : t.owner || "?"}: ${short(t)}`]),
     ["general", "Not for a specific task (general background)"]];
+}
+
+// Options for "Which task does it answer?": open tasks by due date, then finished tasks (most recent first).
+function resultTaskOptions(current) {
+  const short = (t) => (t.title || t.id).length > 70 ? (t.title || t.id).slice(0, 68) + "…" : (t.title || t.id);
+  const label = (t) => `${isDone(t) ? "✓ " : ""}${t.due ? fmtDate(t.due, { day: "numeric", month: "short" }) + " · " : ""}${isTeam(t.owner) ? "Everyone" : t.owner || "?"}: ${short(t)}`;
+  const open = SITE.tasks.filter((t) => !isDone(t)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (isTeam(a.owner) ? -1 : 1));
+  const done = SITE.tasks.filter(isDone).sort((a, b) => (b.completed || b.due || "").localeCompare(a.completed || a.due || ""));
+  return [["", "Choose a task…"], ...open.map((t) => [t.id, label(t)]), ...done.map((t) => [t.id, label(t)]),
+    ["general", "Not for a specific task (general)"]];
 }
 
 function viewPapers() {
@@ -928,7 +1007,7 @@ function viewGuide() {
     <section class="g-hero">
       <div class="eyebrow">How it works</div>
       <h1>Using the hub</h1>
-      <p>Our team's shared to-do list, calendar, data catalog, reading list and notebook. Everyone sees the same thing, and anyone on the team can change it.</p>
+      <p>Our team's shared to-do list, calendar, results log, data catalog, reading list and notebook. Everyone sees the same thing, and anyone on the team can change it.</p>
     </section>
 
     <div class="g-paths">
@@ -953,7 +1032,7 @@ function viewGuide() {
     <div class="card g-card">
       <p class="g-lead">Files go in our <a href="${DRIVE_FOLDER_URL}" target="_blank" rel="noopener">team Google Drive folder</a>, which only we can open. The hub stores just the link. That keeps our drafts private and keeps copyrighted papers off a public site.</p>
       <ol class="g-steps">
-        ${step(1, "Find the link field", `<p>Every place that asks for a link (a task's output, a finding's evidence, a paper, a note) has a Drive button next to it.</p>`)}
+        ${step(1, "Find the link field", `<p>Every place that asks for a link (a result's document, a paper, a note) has a Drive button next to it.</p>`)}
         ${step(2, pickerOn() ? "Choose from Drive" : "Open the Drive and copy the link", pickerOn()
           ? `<p>Click <b>Choose from Drive</b>, then pick the file, or upload it from your computer in the <em>Upload</em> tab. The link fills in by itself.</p>`
           : `<p>Click <b>Open team Drive</b>, drop your file in, then on the file click <b>Share → Copy link</b>.</p>`)}
@@ -971,21 +1050,21 @@ function viewGuide() {
           <li>"Add a task for me: pull turnout data from IDEA, due next Friday."</li>
           <li>"Put a team meeting in the calendar on Thursday at 14:00 in the library."</li>
           <li>"I read this paper: add it to the literature list with a summary."</li>
-          <li>"Mark my V-Dem task as done."</li>
-          <li>"Log a finding: Poland's turnout rose from 50.9% to 74.4% between 2015 and 2023, source IDEA."</li></ul>`)}
+          <li>"Mark my V-Dem task as done. The result: Poland's turnout rose from 50.9% to 74.4% between 2015 and 2023 (IDEA), here's the Drive link."</li>
+          <li>"Add a result to Filipa's 2023 election task: …" (adding a result doesn't tick the task)</li></ul>`)}
       </ol>
       <p class="g-alt">Prefer a file? <a href="AGENT_SETUP.md" download>Download AGENT_SETUP.md</a> and hand it to your agent.</p>
     </div>`;
 }
 
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, findings: viewFindings, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, results: viewResults, findings: viewResults, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];
   const key = VIEWS[route] ? route : "overview";
   document.getElementById("app").innerHTML = VIEWS[key]();
-  const navKey = key === "past" ? "tasks" : key;
+  const navKey = key === "past" ? "tasks" : key === "findings" ? "results" : key;
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + navKey));
 }
 
@@ -995,7 +1074,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
   const driveBtn = e.target.closest("[data-drive]");
   if (driveBtn) { e.preventDefault(); return driveAction(driveBtn); }
-  const el = e.target.closest("[data-ftype],[data-fowner],[data-finding],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -1008,18 +1087,17 @@ document.addEventListener("click", (e) => {
   }
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.tick) return requireAuth(() => tickDialog(d.tick));
-  if (d.ftype !== undefined) { view.fType = d.ftype; return render(); }
-  if (d.fowner !== undefined) { view.fOwner = d.fowner; return render(); }
-  if (d.finding) {
-    const f = find("findings", d.finding);
-    const t = FINDING_TYPES[f.type] || FINDING_TYPES.description;
-    return viewModal({ title: f.title, body: f.body, accent: false, link: f.link, linkLabel: "Open evidence ↗", edit: { collection: "findings", item: f },
-      facts: `${chip(t.label, t.chip)}${who(f.owner)}${f.date ? chip(fmtDate(f.date, { day: "numeric", month: "long", year: "numeric" })) : ""}${f.source ? chip("Source: " + f.source, "slate") : chip("No source yet", "red")}` });
+  if (d.result) {
+    const r = find("results", d.result);
+    const t = SITE.tasks.find((x) => x.id === r.task);
+    const ty = FINDING_TYPES[r.type];
+    return viewModal({ title: r.title, body: r.body, accent: false, link: r.link, linkLabel: "Open document ↗", edit: { collection: "results", item: r },
+      facts: `${who(r.owner)}${r.date ? chip(fmtDate(r.date, { day: "numeric", month: "long", year: "numeric" })) : ""}${t ? chip(`For: ${t.title.length > 60 ? t.title.slice(0, 58) + "…" : t.title}`) : chip("General")}${ty ? chip(ty.label, ty.chip) : ""}${r.source ? chip("Source: " + r.source, "slate") : ""}` });
   }
   if (d.ev) return openEvent(d.ev, d.on);
-  if (d.add) return requireAuth(() => openForm(d.add, null, d.date ? { date: d.date } : {}));
+  if (d.add) return requireAuth(() => openForm(d.add, null, { ...(d.date ? { date: d.date } : {}), ...(d.forTask ? { task: d.forTask } : {}) }));
   if (d.edit) return requireAuth(() => openForm(d.edit, d.edit === "overview" ? "overview" : d.id));
-  if (d.status) return requireAuth(() => quickStatus(d.id, d.status));
+  if (d.status) return requireAuth(async () => { if (d.undoResult) await dropResult(d.undoResult); quickStatus(d.id, d.status); });
   if (d.owner !== undefined) { view.owner = d.owner; return render(); }
   if (d.author !== undefined) { view.author = d.author; return render(); }
   if (d.cal !== undefined) {
@@ -1035,7 +1113,12 @@ document.addEventListener("click", (e) => {
     const move = done
       ? `<button class="btn" data-status="todo" data-id="${esc(t.id)}">↺ Mark as not done</button>`
       : `<button class="btn primary" data-tick="${esc(t.id)}">✓ Mark done</button>`;
-    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, edit: { collection: "tasks", item: t }, link: hasOutput(t) ? t.output : "", linkLabel: "Open output ↗",
+    const res = resultsFor(t.id);
+    const extra = `<div class="t-results"><div class="t-results-head"><span>Results</span><button class="btn ghost" data-add="results" data-for-task="${esc(t.id)}">+ Add result</button></div>
+      ${res.length ? res.map((r) => `<div class="r-item" data-result="${esc(r.id)}" role="button" tabindex="0"><div class="r-sum">${esc(r.title)}</div>
+        <div class="r-meta">${r.link ? `<a class="out-link r-doc" href="${esc(r.link)}" target="_blank" rel="noopener">Open document ↗</a>` : '<span class="no-out">No document attached</span>'}${r.date ? `<span class="no-out">${fmtDate(r.date, { day: "numeric", month: "short" })}</span>` : ""}</div></div>`).join("")
+        : `<p class="muted t-none">${done ? "No result written for this task." : "None yet. Ticking the task asks for one."}</p>`}</div>`;
+    return viewModal({ title: t.title, body: t.body, accent: !done, actions: move, extra, edit: { collection: "tasks", item: t }, link: hasOutput(t) ? t.output : "", linkLabel: "Open output ↗",
       facts: `${chip(done ? "Done" : "To do", done ? "green" : "")}${who(t.owner)}${t.due ? chip("Due " + fmtDate(t.due, { day: "numeric", month: "long" })) : ""}${t.completed ? chip("Ticked off " + fmtDate(t.completed, { day: "numeric", month: "long" }), "green") : ""}` });
   }
   if (d.note) {
@@ -1052,7 +1135,7 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task], [role="button"][data-finding]')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task], [role="button"][data-result]')) { e.preventDefault(); e.target.click(); }
 });
 
 // ---------- light / dark ----------
