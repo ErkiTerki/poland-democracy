@@ -17,7 +17,7 @@ that rebuilds automatically on every push to `main`.
 2. Make the change. Prefer **creating new files** over editing other people's.
 3. Run `python3 build.py`. It must print counts with no errors.
 4. To preview: `python3 -m http.server`, then open http://localhost:8000.
-5. Commit with a clear message (`papers: summarise Sadurski 2019`), then `git pull --rebase && git push` to `main`.
+5. Commit with a clear message (`papers: add Sadurski 2019`), then `git pull --rebase && git push` to `main`.
 6. If the rebase conflicts in a file you didn't write, stop and ask your human. Don't overwrite a teammate's work.
 
 ## Collections and fields
@@ -29,7 +29,7 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
 | findings | `short-claim.md` | title (the finding: one sentence with its number), type (`description`/`prediction`/`causal`), source (dataset or paper **with version**, e.g. "V-Dem v16 (Coppedge et al. 2026), v2x_libdem"), owner, date (YYYY-MM-DD), link (optional URL to the evidence). Body = caveats: uncertainty, coverage, what it does NOT show |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
-| papers | `short-title.md` | title, url, status (`to-read`/`reading`/`summarised`). Body = notes |
+| papers | `short-title.md` | title, url, owner (first name of whoever added it). Body = optional notes. The Literature page is a plain library: no reading status, and findings go in `findings`, not here |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
 
 How the Tasks page reads them: open tasks are grouped strictly by due date (one group per date). A task owned by
@@ -46,9 +46,7 @@ Events appear on the Overview calendar. `board` events also drive the countdown.
 Notes belong to whoever wrote them: don't edit a teammate's note unless they ask. Notes are public too, so no personal
 data or private remarks about people.
 
-Paper notes go in the body. Only mark a
-paper `summarised` if a human on the team actually read it. Never invent a summary of a paper you
-haven't been given the text of.
+Paper notes go in the body and are optional. Never invent a summary of a paper you haven't been given the text of.
 
 ## Research rules (from the challenge brief — non-negotiable)
 - **Indices are constructed, not observed.** For any index, record what it counts as democracy, who

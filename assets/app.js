@@ -162,7 +162,6 @@ const FINDING_TYPES = {
 };
 // The three groups the challenge brief uses for its data list, plus a catch-all.
 const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust", "Other"];
-const PAPER_STATUS = { summarised: ["Summarised", "green"], reading: ["Reading", "slate"], "to-read": ["To read", ""] };
 
 // ---------- form definitions (one per content collection) ----------
 const slug = (s) => String(s || "").toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -225,13 +224,13 @@ const FORMS = {
     ],
   },
   papers: {
-    noun: "paper", dir: "content/papers", order: ["title", "url", "status"],
+    noun: "reading", dir: "content/papers", order: ["title", "url", "owner"],
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Title", type: "text", req: true },
       { k: "url", label: "Link: DOI or publisher page, or the PDF in our Drive", type: "url", drive: true, ph: "https://…" },
-      { k: "status", label: "Status", type: "select", def: "to-read", opts: [["to-read", "To read"], ["reading", "Reading"], ["summarised", "Summarised"]] },
-      { k: "body", label: "Notes", type: "textarea", rows: 8 },
+      { k: "owner", label: "Added by", type: "text", list: "owners", def: () => Store.auth?.name || "" },
+      { k: "body", label: "Notes (optional)", type: "textarea", rows: 6, ph: "Why it's useful, which part to read… Findings go in Findings." },
     ],
   },
   notes: {
@@ -403,7 +402,7 @@ async function openForm(collection, id, defaults = {}) {
       current = r.item; sha = r.sha;
     } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
   }
-  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
+  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
     if (current) return current[f.k];
     if (f.k in defaults) return defaults[f.k];
@@ -629,7 +628,6 @@ function viewOverview() {
   const today = todayIso();
   const nextBoard = occurrences(today, "9999-12-31").find((e) => e.type === "board");
   const openTasks = SITE.tasks.filter((t) => t.status !== "done").length;
-  const summarised = SITE.papers.filter((p) => p.status === "summarised").length;
   const title = esc(o.title || "Overview").replace("U-turn", "<em>U‑turn</em>");
   if (view.calY === null) { const t = new Date(); view.calY = t.getFullYear(); view.calM = t.getMonth(); }
 
@@ -657,7 +655,7 @@ function viewOverview() {
       <a class="card stat" href="#tasks"><span class="n">${openTasks}</span><span class="l">open tasks</span></a>
       <a class="card stat" href="#findings"><span class="n">${(SITE.findings || []).length}</span><span class="l">findings</span></a>
       <a class="card stat" href="#datasets"><span class="n">${SITE.datasets.length}</span><span class="l">datasets</span></a>
-      <a class="card stat" href="#papers"><span class="n">${summarised}<span style="color:var(--muted);font-weight:500">/${SITE.papers.length}</span></span><span class="l">papers summarised</span></a>
+      <a class="card stat" href="#papers"><span class="n">${SITE.papers.length}</span><span class="l">readings</span></a>
     </div>
 
     <div class="section-head"><h2 class="section-title">Calendar</h2>
@@ -847,17 +845,16 @@ function viewDatasets() {
 }
 
 function viewPapers() {
-  const add = addBtn("papers", "+ Add paper");
-  const head = pageHead("Reading list", "Literature", "Papers, reports and books. Only a teammate who actually read one marks it <em>summarised</em>.", SITE.papers.length ? add : "");
-  if (!SITE.papers.length) return `${head}<div class="empty"><h3>No papers yet</h3><p>Add something you've read or want to read.</p>${add}</div>`;
-  const order = ["reading", "to-read", "summarised"];
-  const names = { reading: "Reading now", "to-read": "To read", summarised: "Summarised" };
-  return head + order.filter((s) => SITE.papers.some((p) => (p.status || "to-read") === s)).map((s) =>
-    `<div class="group-title">${names[s]}</div>` + rowsHtml(
-      SITE.papers.filter((p) => (p.status || "to-read") === s).sort((a, b) => a.title.localeCompare(b.title)),
-      (p) => `<button class="row" data-paper="${esc(p.id)}">
-        <div><div class="row-title">${esc(p.title)}</div>${p.url ? `<div class="row-sub">${esc(p.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0])}</div>` : ""}</div>
-      </button>`)).join("");
+  const add = addBtn("papers", "+ Add reading");
+  const head = pageHead("Library", "Literature", "Every paper, report and article we use, and who added it. Click one to open its link and notes.", SITE.papers.length ? add : "");
+  if (!SITE.papers.length) return `${head}<div class="empty"><h3>No readings yet</h3><p>Add a paper, report or article the team should know about.</p>${add}</div>`;
+  const filter = ownerFilter(SITE.papers);
+  return head + filter.html + rowsHtml(
+    SITE.papers.filter(filter.keep).sort((a, b) => a.title.localeCompare(b.title)),
+    (p) => `<button class="row" data-paper="${esc(p.id)}">
+      <div><div class="row-title">${esc(p.title)}</div>${p.url ? `<div class="row-sub">${esc(p.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0])}</div>` : ""}</div>
+      <div class="row-right">${p.owner ? who(p.owner) : ""}${p.body ? '<span class="has-notes" title="Has notes">Notes</span>' : ""}</div>
+    </button>`);
 }
 
 // "2026-10-29 14:05" → "Today, 14:05" / "29 Oct 2026, 14:05"
@@ -1023,9 +1020,8 @@ document.addEventListener("click", (e) => {
   }
   if (d.paper) {
     const p = find("papers", d.paper);
-    const [label, cls] = PAPER_STATUS[p.status] || PAPER_STATUS["to-read"];
     return viewModal({ title: p.title, body: p.body, link: p.url, accent: false, edit: { collection: "papers", item: p },
-      facts: chip(label, cls) });
+      facts: p.owner ? chip("Added by " + p.owner, "slate") : "" });
   }
 });
 
