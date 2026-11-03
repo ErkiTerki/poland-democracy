@@ -27,7 +27,7 @@ Frontmatter values are plain one-line strings. Filenames are lowercase-with-dash
 |---|---|---|
 | tasks | `short-name.md` | title, status (`todo`/`done`), owner (a first name, or `Everyone` for a shared task), due (YYYY-MM-DD), completed (YYYY-MM-DD, the day it was marked done; set it when you mark a task done, remove it if you reopen it). Old done tasks may still carry `output` (a single link): leave it, but don't add it any more. What a task produced goes in `results` |
 | events | `YYYY-MM-DD-short-name.md` | title, date (YYYY-MM-DD), time (HH:MM, optional), type (`board`/`deadline`/`meeting`/`team`/`other`), location, repeat (`weekly`, optional), until (YYYY-MM-DD, with repeat) |
-| results | `YYYY-MM-DD-short-summary.md` | title (**required**: the result summarised in words, one or two sentences, with its numbers and their source + version), task (filename stem of the task it answers, without `.md`, or `general`), owner (who produced it), date (YYYY-MM-DD, the day it was recorded), link (optional: URL of the document, e.g. a Drive file or a note). Body = optional details and caveats: uncertainty, coverage, what it does NOT show |
+| results | `YYYY-MM-DD-short-summary.md` | title (**required**: the result summarised in words, one or two sentences, with its numbers and their source + version), task (filename stem of the task it answers, without `.md`, or `general`), owner (who produced it), date (YYYY-MM-DD, the day it was recorded), link (optional: URL of the document, e.g. a Drive file or a note). Body = **required** details: what was found, in more depth (numbers with source + version, method, uncertainty, what it does NOT show) |
 | datasets | `source-name.md` | title, category (`Measuring democracy`/`Parties and elections`/`Attitudes and trust`/`Other`, the brief's groups), url (where to download it). Body = one or two plain-language sentences on what's in it |
 | papers | `short-title.md` | title, url, owner (first name of whoever added it), task (filename stem of the task it's for, without `.md`, or `general`). Body = optional notes. The page groups readings by that task's due date. The Literature page is a plain library: no reading status, and conclusions go in `results`, not here |
 | notes | `firstname-short-headline.md` | title (the headline), author, updated (`YYYY-MM-DD HH:MM`, local time; set it to now every time you save the note). Body = the notes in Markdown |
@@ -38,8 +38,8 @@ under it. So give tasks that belong to the same round the same due date. Done ta
 **Past work** (`#past`), a timeline grouped the same way. There is no `doing` status any more (old files with it count as open).
 
 **Results** are what each task produced. **Marking a task done always comes with a result**: when you set a task to
-`done`, also create a `results` file with `task:` set to that task and a `title` summarising the outcome in words (add
-`link:` if there's a document). Ask your human for the summary if you don't have it; never invent one. A result can
+`done`, also create a `results` file with `task:` set to that task, a `title` describing the outcome in a sentence or two, and a body with the details
+(both required; add `link:` if there's a document). Ask your human for the summary if you don't have it; never invent one. A result can
 also be added on its own (`task:` set, task left as it is): adding a result never ticks its task, and reopening a task
 never deletes its results. The Results page groups results by `date` (newest first), then by task.
 In a result's wording, keep description, prediction and causal claims apart: a correlation or a co-occurrence in time

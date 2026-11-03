@@ -154,6 +154,7 @@ const STATUS = {
 };
 const isDone = (t) => t.status === "done";
 const hasOutput = (t) => !!t.output && t.output !== "none";
+const RESULT_DETAILS_PH = "What exactly you found, step by step: the numbers and their source + version (e.g. V-Dem v16, ESS round 11), how you got them, the uncertainty, and what the result does NOT show.";
 const RESULT_PH = "e.g. V-Dem v16: Poland's liberal democracy index fell 2015–2022 and rose again in 2024, beyond the uncertainty interval. Description, not a cause.";
 // Old findings carried one of these types. New results don't ask for it; the chip still shows on old ones.
 const FINDING_TYPES = {
@@ -185,8 +186,9 @@ const FORMS = {
       { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
       // Only when a task becomes done: its result, saved as a new file in Results (not on the task itself).
-      { k: "_result", label: "Result: what came out of this task? (required to mark it done)", type: "textarea", rows: 3, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: RESULT_PH },
-      { k: "_resultLink", label: "Link to the document (optional)", type: "url", drive: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: "https://… (a Drive file, a note, slides…)" },
+      { k: "_result", label: "1. Description of the result: what came out of this task? (required to mark it done)", type: "textarea", rows: 3, mark: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: RESULT_PH },
+      { k: "_resultDetails", label: "2. Details of the result: what you found, in more depth (required)", type: "textarea", rows: 6, mark: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: RESULT_DETAILS_PH },
+      { k: "_resultLink", label: "3. Link to the document (optional)", type: "url", drive: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: "https://… (a Drive file, a note, slides…)" },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
   },
@@ -208,12 +210,12 @@ const FORMS = {
     noun: "result", dir: "content/results", order: ["title", "task", "owner", "date", "link"],
     base: (f) => `${f.date || todayIso()}-${slug(f.title)}`,
     fields: [
-      { k: "title", label: "Result: a short summary, in words, of what came out", type: "textarea", rows: 3, req: true, ph: RESULT_PH },
       { k: "task", label: "Which task does it answer?", type: "select", req: true, opts: resultTaskOptions },
+      { k: "title", label: "1. Description of the result: what came out, in a sentence or two", type: "textarea", rows: 3, req: true, ph: RESULT_PH },
+      { k: "body", label: "2. Details: explain in more depth what you found", type: "textarea", rows: 7, req: true, ph: RESULT_DETAILS_PH },
+      { k: "link", label: "3. Link to the document (optional)", type: "url", drive: true, ph: "https://… (a Drive file, a note, slides…)" },
       { k: "owner", label: "By", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "date", label: "Date", type: "date", half: true, def: () => todayIso() },
-      { k: "link", label: "Link to the document (optional)", type: "url", drive: true, ph: "https://… (a Drive file, a note, slides…)" },
-      { k: "body", label: "Details (optional): caveats, sources and versions, what it does NOT show", type: "textarea", rows: 5 },
     ],
   },
   datasets: {
@@ -387,7 +389,7 @@ function fieldHtml(f, val) {
   const cls = `field${f.half ? " half" : ""}${f.showIf ? " cond" : ""}`;
   const attrs = `name="${f.k}" ${f.req ? "required" : ""} ${f.ph ? `placeholder="${esc(f.ph)}"` : ""}`;
   const dataIf = f.showIf ? ` data-if="${f.showIf}"${f.showIfValue ? ` data-if-val="${esc(f.showIfValue)}"` : ""}` : "";
-  if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea>${f.drive ? `<span class="attach-row">${pickerOn() ? `<button type="button" class="btn drive-btn" data-drive="pick">${DRIVE_ICON} Attach a file from Drive</button>` : `<button type="button" class="btn drive-btn" data-drive="open">${DRIVE_ICON} Open team Drive ↗</button><button type="button" class="btn ghost paste-btn" data-drive="paste">Paste file link</button><small class="drive-hint">Adds the copied Drive link where your cursor is.</small>`}</span>` : ""}</label>`;
+  if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}${f.req || f.mark ? ' <em class="req">*</em>' : ""}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea>${f.drive ? `<span class="attach-row">${pickerOn() ? `<button type="button" class="btn drive-btn" data-drive="pick">${DRIVE_ICON} Attach a file from Drive</button>` : `<button type="button" class="btn drive-btn" data-drive="open">${DRIVE_ICON} Open team Drive ↗</button><button type="button" class="btn ghost paste-btn" data-drive="paste">Paste file link</button><small class="drive-hint">Adds the copied Drive link where your cursor is.</small>`}</span>` : ""}</label>`;
   if (f.drive) return `<div class="${cls}"${dataIf}><span class="field-label">${esc(f.label)}</span>${linkRow(f.k, v, f.ph)}</div>`;
   if (f.type === "select") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}${f.req ? ' <em class="req">*</em>' : ""}</span><select ${attrs}>${(typeof f.opts === "function" ? f.opts(v) : f.opts).map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
   if (f.type === "checkbox") return `<label class="${cls} check"${dataIf}><input type="checkbox" name="${f.k}" ${v ? "checked" : ""}><span>${esc(f.label)}</span></label>`;
@@ -450,9 +452,9 @@ async function openForm(collection, id, defaults = {}) {
     delete fields.id; delete fields.path;
     // A task can only become done together with a written result.
     const newlyDone = collection === "tasks" && fields.status === "done" && (!current || current.status !== "done");
-    if (newlyDone && !extra._result) {
-      form.elements._result?.focus();
-      return fail("To mark the task done, write a short summary of its result. You can add a link to the document too.");
+    if (newlyDone && (!extra._result || !extra._resultDetails)) {
+      (extra._result ? form.elements._resultDetails : form.elements._result)?.focus();
+      return fail("To mark the task done, write both the description of its result and the details. The link is optional.");
     }
     spec.stamp?.(fields);
     const text = Store.serialize(fields, spec.order);
@@ -461,7 +463,7 @@ async function openForm(collection, id, defaults = {}) {
     try {
       const path = spec.fixedPath || (current ? current.path : await Store.uniquePath(spec.dir, spec.base(fields)));
       const who = Store.auth.login;
-      if (newlyDone) made = await saveResult({ summary: extra._result, link: extra._resultLink, taskId: idOf(path), taskOwner: fields.owner });
+      if (newlyDone) made = await saveResult({ summary: extra._result, details: extra._resultDetails, link: extra._resultLink, taskId: idOf(path), taskOwner: fields.owner });
       await Store.write(path, text, `${collection}: ${isNew ? "add" : "update"} "${fields.title}" (via site, @${who})`, sha);
       applyLocal(collection, path, Store.parse(text, path));
       modal.close();
@@ -492,9 +494,9 @@ const resultsFor = (taskId) => (SITE.results || []).filter((r) => r.task === tas
   .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || a.title.localeCompare(b.title));
 
 // Writes one result file for a task. Returns its path. Who: the task's owner, or whoever saves it for a shared task.
-async function saveResult({ summary, link, taskId, taskOwner }) {
+async function saveResult({ summary, details, link, taskId, taskOwner }) {
   const spec = FORMS.results;
-  const fields = { title: summary, task: taskId, owner: taskOwner && !isTeam(taskOwner) ? taskOwner : Store.auth.name, date: todayIso(), body: "" };
+  const fields = { title: summary, task: taskId, owner: taskOwner && !isTeam(taskOwner) ? taskOwner : Store.auth.name, date: todayIso(), body: details || "" };
   if (link) fields.link = link;
   const text = Store.serialize(fields, spec.order);
   const path = await Store.uniquePath(spec.dir, spec.base(fields));
@@ -544,10 +546,11 @@ function tickDialog(id) {
     <p class="tick-task">${esc(t.title)}</p>
     <form class="form" id="tick-form" autocomplete="off">
       <p class="tick-q"><strong>What came out of this task?</strong><br>
-        <span class="muted">Summarise the result in a sentence or two: what you found or produced, with its numbers and sources. It goes to Results, under this task, so the whole team (Valentin included) can read it.</span></p>
+        <span class="muted">Describe the result in a sentence or two, then explain the details: what you found, with its numbers and sources. Both go to Results, under this task, so the whole team (Valentin included) can read them.</span></p>
       ${prior.length ? `<p class="tick-prior muted">Already in Results for this task: ${prior.map((r) => `“${esc(excerpt(r.title, 80))}”`).join(", ")}. Add the overall result here.</p>` : ""}
-      <label class="field"><span>Result summary <em class="req">*</em></span><textarea name="summary" rows="4" placeholder="${esc(RESULT_PH)}"></textarea></label>
-      <div class="field"><span class="field-label">Link to the document (optional)</span>${linkRow("link", "", "https://… (a Drive file, a note, slides…)")}</div>
+      <label class="field"><span>1. Description of the result: what came out, in a sentence or two <em class="req">*</em></span><textarea name="summary" rows="3" placeholder="${esc(RESULT_PH)}"></textarea></label>
+      <label class="field"><span>2. Details: explain in more depth what you found <em class="req">*</em></span><textarea name="details" rows="6" placeholder="${esc(RESULT_DETAILS_PH)}"></textarea></label>
+      <div class="field"><span class="field-label">3. Link to the document (optional)</span>${linkRow("link", "", "https://… (a Drive file, a note, slides…)")}</div>
       <p class="form-error" hidden></p>
       <div class="tick-actions">
         <button class="btn primary" type="submit">✓ Save result and mark done</button>
@@ -561,12 +564,16 @@ function tickDialog(id) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const summary = form.elements.summary.value.trim();
-    if (!summary) { err.hidden = false; err.textContent = "Write a short summary of the result first. The link is optional."; form.elements.summary.focus(); return; }
+    const details = form.elements.details.value.trim();
+    if (!summary || !details) {
+      err.hidden = false; err.textContent = "Write both the description of the result and its details. Only the link is optional.";
+      (summary ? form.elements.details : form.elements.summary).focus(); return;
+    }
     const btn = form.querySelector("[type=submit]");
     form.querySelectorAll("button").forEach((b) => (b.disabled = true));
     btn.textContent = "Saving…";
     let path;
-    try { path = await saveResult({ summary, link: form.elements.link.value.trim(), taskId: id, taskOwner: t.owner }); }
+    try { path = await saveResult({ summary, details, link: form.elements.link.value.trim(), taskId: id, taskOwner: t.owner }); }
     catch (ex) {
       form.querySelectorAll("button").forEach((b) => (b.disabled = false)); btn.textContent = "✓ Save result and mark done";
       err.hidden = false; err.textContent = ex.status === 401 ? "Your token was rejected (expired?). Connect again." : ex.message; return;
