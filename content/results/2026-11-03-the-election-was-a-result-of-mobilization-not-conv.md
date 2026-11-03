@@ -1,5 +1,5 @@
 ---
-title: The election was a result of mobilization, not conversion. The fight was over constitutional democracy itself (Markowski). Polarization helped drive turnout.
+title: The election was a result of mobilization, not conversion. The fight was over constitutional democracy itself (Markowski). Party coordination allowed the coalition to overcome challenges from 2015.
 task: analyse-the-literature-and-data-behind-the-2023-pa
 owner: Filipa
 date: 2026-11-03
