@@ -163,13 +163,13 @@ const FINDING_TYPES = {
   causal: { label: "Causal claim", chip: "red", hint: "What made it happen. Needs a design that rules out other explanations, not just a correlation." },
 };
 // The three groups the challenge brief uses for its data list, plus a catch-all.
-// Teammates can add their own categories from the dataset form; those sit before "Other".
-const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust", "Other"];
+// Teammates can add their own categories from the dataset form; those come after these three.
+const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust"];
 const NEW_CAT = "__new__";
 function allCategories(current) {
   const custom = [...new Set([...(SITE?.datasets || []).map((d) => d.category), current]
     .filter((c) => c && c !== NEW_CAT && !CATEGORIES.includes(c)))].sort((a, b) => a.localeCompare(b));
-  return [...CATEGORIES.slice(0, 3), ...custom, "Other"];
+  return [...CATEGORIES, ...custom];
 }
 
 // ---------- form definitions (one per content collection) ----------
@@ -924,7 +924,7 @@ function viewDatasets() {
       <span class="btn primary">Open folder ↗</span>
     </a>`;
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
-  const catOf = (d) => d.category || "Other";
+  const catOf = (d) => d.category || CATEGORIES[0];
   const filter = ownerFilter(SITE.datasets);
   const shown = SITE.datasets.filter(filter.keep);
   return head + filter.html + allCategories().filter((c) => shown.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
