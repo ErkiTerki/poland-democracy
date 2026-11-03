@@ -224,12 +224,13 @@ const FORMS = {
     ],
   },
   papers: {
-    noun: "reading", dir: "content/papers", order: ["title", "url", "owner"],
+    noun: "reading", dir: "content/papers", order: ["title", "url", "owner", "task"],
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Title", type: "text", req: true },
       { k: "url", label: "Link: DOI or publisher page, or the PDF in our Drive", type: "url", drive: true, ph: "https://…" },
       { k: "owner", label: "Added by", type: "text", list: "owners", def: () => Store.auth?.name || "" },
+      { k: "task", label: "For which task?", type: "select", req: true, opts: taskOptions },
       { k: "body", label: "Notes (optional)", type: "textarea", rows: 6, ph: "Why it's useful, which part to read… Findings go in Findings." },
     ],
   },
@@ -384,7 +385,7 @@ function fieldHtml(f, val) {
   const dataIf = f.showIf ? ` data-if="${f.showIf}"${f.showIfValue ? ` data-if-val="${esc(f.showIfValue)}"` : ""}` : "";
   if (f.type === "textarea") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><textarea ${attrs} rows="${f.rows || 5}">${esc(v)}</textarea>${f.drive ? `<span class="attach-row">${pickerOn() ? `<button type="button" class="btn drive-btn" data-drive="pick">${DRIVE_ICON} Attach a file from Drive</button>` : `<button type="button" class="btn drive-btn" data-drive="open">${DRIVE_ICON} Open team Drive ↗</button><button type="button" class="btn ghost paste-btn" data-drive="paste">Paste file link</button><small class="drive-hint">Adds the copied Drive link where your cursor is.</small>`}</span>` : ""}</label>`;
   if (f.drive) return `<div class="${cls}"${dataIf}><span class="field-label">${esc(f.label)}</span>${linkRow(f.k, v, f.ph)}</div>`;
-  if (f.type === "select") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}</span><select ${attrs}>${f.opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+  if (f.type === "select") return `<label class="${cls}"${dataIf}><span>${esc(f.label)}${f.req ? ' <em class="req">*</em>' : ""}</span><select ${attrs}>${(typeof f.opts === "function" ? f.opts(v) : f.opts).map(([k, l]) => `<option value="${esc(k)}" ${k === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
   if (f.type === "checkbox") return `<label class="${cls} check"${dataIf}><input type="checkbox" name="${f.k}" ${v ? "checked" : ""}><span>${esc(f.label)}</span></label>`;
   return `<label class="${cls}"${dataIf}><span>${esc(f.label)}${f.req ? ' <em class="req">*</em>' : ""}</span><input type="${f.type}" ${attrs} value="${esc(v)}" ${f.list ? `list="${f.list}"` : ""}></label>`;
 }
@@ -844,17 +845,41 @@ function viewDatasets() {
     </details>`).join("")}</div>`).join("");
 }
 
+// Options for "For which task?": open tasks by due date (plus the reading's current task, even if it's done since).
+function taskOptions(current) {
+  const short = (t) => (t.title || t.id).length > 70 ? (t.title || t.id).slice(0, 68) + "…" : (t.title || t.id);
+  const tasks = SITE.tasks.filter((t) => !isDone(t) || t.id === current)
+    .sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (isTeam(a.owner) ? -1 : 1));
+  return [["", "Choose a task…"],
+    ...tasks.map((t) => [t.id, `${t.due ? fmtDate(t.due, { day: "numeric", month: "short" }) + " · " : ""}${isTeam(t.owner) ? "Everyone" : t.owner || "?"}: ${short(t)}`]),
+    ["general", "Not for a specific task (general background)"]];
+}
+
 function viewPapers() {
   const add = addBtn("papers", "+ Add reading");
-  const head = pageHead("Library", "Literature", "Every paper, report and article we use, and who added it. Click one to open its link and notes.", SITE.papers.length ? add : "");
+  const head = pageHead("Library", "Literature", "Every paper, report and article we use, grouped by the task it's for. Click one to open its link and notes.", SITE.papers.length ? add : "");
   if (!SITE.papers.length) return `${head}<div class="empty"><h3>No readings yet</h3><p>Add a paper, report or article the team should know about.</p>${add}</div>`;
   const filter = ownerFilter(SITE.papers);
-  return head + filter.html + rowsHtml(
-    SITE.papers.filter(filter.keep).sort((a, b) => a.title.localeCompare(b.title)),
-    (p) => `<button class="row" data-paper="${esc(p.id)}">
-      <div><div class="row-title">${esc(p.title)}</div>${p.url ? `<div class="row-sub">${esc(p.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0])}</div>` : ""}</div>
+  const taskOf = (p) => SITE.tasks.find((t) => t.id === p.task);
+  const groups = new Map();
+  for (const p of SITE.papers.filter(filter.keep)) {
+    const t = taskOf(p); const key = t?.due || "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  }
+  const keys = [...groups.keys()].sort((a, b) => (a || "9999").localeCompare(b || "9999"));
+  const row = (p) => {
+    const t = taskOf(p);
+    const sub = [p.url ? esc(p.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]) : "",
+      t && t.owner !== p.owner ? `For ${isTeam(t.owner) ? "the shared task" : esc(t.owner || "?") + "'s task"}` : ""].filter(Boolean).join(" · ");
+    return `<button class="row" data-paper="${esc(p.id)}">
+      <div><div class="row-title">${esc(p.title)}</div>${sub ? `<div class="row-sub">${sub}</div>` : ""}</div>
       <div class="row-right">${p.owner ? who(p.owner) : ""}${p.body ? '<span class="has-notes" title="Has notes">Notes</span>' : ""}</div>
-    </button>`);
+    </button>`;
+  };
+  return head + filter.html + keys.map((k) =>
+    `<div class="group-title">${k ? "For tasks due " + fmtDate(k, { weekday: "long", day: "numeric", month: "long" }) : "General background"}</div>` +
+    rowsHtml(groups.get(k).sort((a, b) => (a.owner || "").localeCompare(b.owner || "") || a.title.localeCompare(b.title)), row)).join("");
 }
 
 // "2026-10-29 14:05" → "Today, 14:05" / "29 Oct 2026, 14:05"
@@ -1021,7 +1046,8 @@ document.addEventListener("click", (e) => {
   if (d.paper) {
     const p = find("papers", d.paper);
     return viewModal({ title: p.title, body: p.body, link: p.url, accent: false, edit: { collection: "papers", item: p },
-      facts: p.owner ? chip("Added by " + p.owner, "slate") : "" });
+      facts: (p.owner ? chip("Added by " + p.owner, "slate") : "") +
+        ((t) => t ? chip(`For: ${t.title.length > 60 ? t.title.slice(0, 58) + "…" : t.title}${t.due ? " (due " + fmtDate(t.due, { day: "numeric", month: "short" }) + ")" : ""}`) : "")(SITE.tasks.find((t) => t.id === p.task)) });
   }
 });
 

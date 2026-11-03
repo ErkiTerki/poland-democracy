@@ -2,6 +2,7 @@
 title: The Polish election of 2023 mobilisation in defence of liberal democracy
 url: https://drive.google.com/file/d/1CeWC8ubtTovi87VUMayuvKyEHdxiNuHS/view?usp=drive_web
 owner: Filipa
+task: analyse-the-literature-and-data-behind-the-2023-pa
 ---
 2023 Election not conducted with the “normal politics environment", concerned with the principles of constitutional democracy
 
