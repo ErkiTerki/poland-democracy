@@ -635,3 +635,10 @@ dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; visibili
 
 .drow-right { display: flex; gap: 14px; align-items: center; flex: none; }
 .drow-right .who { font-weight: 500; }
+
+/* narrow phones: seven sections don't fit, so the menu pill scrolls sideways instead of spilling out of its background */
+@media (max-width: 520px) {
+  nav { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; justify-content: flex-start; }
+  nav::-webkit-scrollbar { display: none; }
+  nav a { flex: none; padding: 6px 11px; }
+}

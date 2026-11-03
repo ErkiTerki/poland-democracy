@@ -163,7 +163,14 @@ const FINDING_TYPES = {
   causal: { label: "Causal claim", chip: "red", hint: "What made it happen. Needs a design that rules out other explanations, not just a correlation." },
 };
 // The three groups the challenge brief uses for its data list, plus a catch-all.
+// Teammates can add their own categories from the dataset form; those sit before "Other".
 const CATEGORIES = ["Measuring democracy", "Parties and elections", "Attitudes and trust", "Other"];
+const NEW_CAT = "__new__";
+function allCategories(current) {
+  const custom = [...new Set([...(SITE?.datasets || []).map((d) => d.category), current]
+    .filter((c) => c && c !== NEW_CAT && !CATEGORIES.includes(c)))].sort((a, b) => a.localeCompare(b));
+  return [...CATEGORIES.slice(0, 3), ...custom, "Other"];
+}
 
 // ---------- form definitions (one per content collection) ----------
 const slug = (s) => String(s || "").toLowerCase().replace(/ł/g, "l").normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -221,9 +228,17 @@ const FORMS = {
   datasets: {
     noun: "dataset", dir: "content/datasets", order: ["title", "category", "url", "owner"],
     base: (f) => slug(f.title),
+    // "+ New category…" in the select: the typed name becomes the category.
+    finish: (f, x) => {
+      if (f.category !== NEW_CAT) return "";
+      if (!x._newCat) return "Type the name of the new category, or pick an existing one.";
+      f.category = allCategories().find((c) => c.toLowerCase() === x._newCat.toLowerCase()) || x._newCat;
+      return "";
+    },
     fields: [
       { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
-      { k: "category", label: "Category", type: "select", half: true, def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
+      { k: "category", label: "Category", type: "select", half: true, def: "Measuring democracy", opts: (cur) => [...allCategories(cur).map((c) => [c, c]), [NEW_CAT, "+ New category…"]] },
+      { k: "_newCat", label: "Name of the new category", type: "text", virtual: true, showIf: "category", showIfValue: NEW_CAT, ph: "e.g. Economy and inequality" },
       { k: "owner", label: "Added by", type: "text", half: true, req: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "url", label: "Where to download it", type: "url", ph: "https://…" },
       { k: "body", label: "Short description (one or two sentences)", type: "textarea", rows: 3, ph: "What's in it, in plain words." },
@@ -457,6 +472,8 @@ async function openForm(collection, id, defaults = {}) {
       (extra._result ? form.elements._resultDetails : form.elements._result)?.focus();
       return fail("To mark the task done, write both the description of its result and the details. The link is optional.");
     }
+    const problem = spec.finish?.(fields, extra);
+    if (problem) return fail(problem);
     spec.stamp?.(fields);
     const text = Store.serialize(fields, spec.order);
     btn.disabled = true; btn.textContent = "Saving…";
@@ -907,10 +924,10 @@ function viewDatasets() {
       <span class="btn primary">Open folder ↗</span>
     </a>`;
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
-  const catOf = (d) => (CATEGORIES.includes(d.category) ? d.category : "Other");
+  const catOf = (d) => d.category || "Other";
   const filter = ownerFilter(SITE.datasets);
   const shown = SITE.datasets.filter(filter.keep);
-  return head + filter.html + CATEGORIES.filter((c) => shown.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
+  return head + filter.html + allCategories().filter((c) => shown.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
   <div class="card drows">${shown.filter((d) => catOf(d) === c).sort((a, b) => a.title.localeCompare(b.title)).map((d) => `
     <details class="drow">
       <summary><span class="drow-title">${esc(d.title)}</span><span class="drow-right">${d.owner ? who(d.owner) : '<span class="who none">No uploader yet</span>'}<span class="drow-chev" aria-hidden="true"></span></span></summary>
@@ -1076,6 +1093,9 @@ function render() {
   document.getElementById("app").innerHTML = VIEWS[key]();
   const navKey = key === "past" ? "tasks" : key === "findings" ? "results" : key;
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + navKey));
+  // On a phone the menu scrolls sideways: bring the current section into view.
+  const nav = document.getElementById("nav"), on = nav.querySelector("a.active");
+  if (on && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = on.offsetLeft - (nav.clientWidth - on.offsetWidth) / 2;
 }
 
 document.addEventListener("click", (e) => {
