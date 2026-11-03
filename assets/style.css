@@ -632,3 +632,6 @@ dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; visibili
 .t-results-head .btn { text-transform: none; letter-spacing: 0; font-size: 0.8rem; }
 .t-none { margin: 0; font-size: 0.86rem; }
 .tick-prior { font-size: 0.82rem; margin: -4px 0 12px; }
+
+.drow-right { display: flex; gap: 14px; align-items: center; flex: none; }
+.drow-right .who { font-weight: 500; }

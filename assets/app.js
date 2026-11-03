@@ -219,11 +219,12 @@ const FORMS = {
     ],
   },
   datasets: {
-    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url"],
+    noun: "dataset", dir: "content/datasets", order: ["title", "category", "url", "owner"],
     base: (f) => slug(f.title),
     fields: [
       { k: "title", label: "Dataset", type: "text", req: true, ph: "e.g. Eurobarometer" },
-      { k: "category", label: "Category", type: "select", def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
+      { k: "category", label: "Category", type: "select", half: true, def: "Measuring democracy", opts: CATEGORIES.map((c) => [c, c]) },
+      { k: "owner", label: "Added by", type: "text", half: true, req: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "url", label: "Where to download it", type: "url", ph: "https://…" },
       { k: "body", label: "Short description (one or two sentences)", type: "textarea", rows: 3, ph: "What's in it, in plain words." },
     ],
@@ -410,7 +411,7 @@ async function openForm(collection, id, defaults = {}) {
     } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
   }
   const shown = spec.fields.filter((f) => !f.onlyIf || f.onlyIf(current));
-  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
+  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), ...SITE.datasets.map((d) => d.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
     if (current) return current[f.k];
     if (f.k in defaults) return defaults[f.k];
@@ -907,10 +908,12 @@ function viewDatasets() {
     </a>`;
   if (!SITE.datasets.length) return `${head}<div class="empty"><h3>No datasets yet</h3><p>Log the first source you look at.</p>${add}</div>`;
   const catOf = (d) => (CATEGORIES.includes(d.category) ? d.category : "Other");
-  return head + CATEGORIES.filter((c) => SITE.datasets.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
-  <div class="card drows">${SITE.datasets.filter((d) => catOf(d) === c).sort((a, b) => a.title.localeCompare(b.title)).map((d) => `
+  const filter = ownerFilter(SITE.datasets);
+  const shown = SITE.datasets.filter(filter.keep);
+  return head + filter.html + CATEGORIES.filter((c) => shown.some((d) => catOf(d) === c)).map((c) => `<div class="group-title">${esc(c)}</div>
+  <div class="card drows">${shown.filter((d) => catOf(d) === c).sort((a, b) => a.title.localeCompare(b.title)).map((d) => `
     <details class="drow">
-      <summary><span class="drow-title">${esc(d.title)}</span><span class="drow-chev" aria-hidden="true"></span></summary>
+      <summary><span class="drow-title">${esc(d.title)}</span><span class="drow-right">${d.owner ? who(d.owner) : '<span class="who none">No uploader yet</span>'}<span class="drow-chev" aria-hidden="true"></span></span></summary>
       <div class="drow-body">
         ${d.body ? `<div class="prose">${md(d.body)}</div>` : '<p class="muted">No description yet.</p>'}
         <div class="drow-actions">
