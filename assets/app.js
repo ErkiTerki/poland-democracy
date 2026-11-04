@@ -707,7 +707,7 @@ function viewOverview() {
   return `
     <section class="hero">
       <div class="hero-main">
-        <div class="eyebrow">Democracy, Political Trust &amp; Radical Voting · Open Data University · Viola</div>
+        <div class="eyebrow">Democracy, Political Trust &amp; Radical Voting · Open Data University</div>
         <h1>${title}</h1>
         ${o.question ? `<p class="question">${esc(o.question)}</p>` : ""}
         <button class="btn ghost hero-edit" data-edit="overview" data-id="overview">Edit</button>
