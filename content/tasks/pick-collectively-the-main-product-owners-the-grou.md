@@ -1,0 +1,7 @@
+---
+title: Pick collectively the main product owners the group should focus on contacting, considering the proposals.
+status: todo
+owner: Everyone
+due: 2026-11-13
+---
+
