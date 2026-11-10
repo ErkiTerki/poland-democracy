@@ -193,8 +193,8 @@ const FORMS = {
       { k: "owner", label: "Owner (a name, or Everyone for a shared task)", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "due", label: "Due date", type: "date", half: true },
       // Only when a task becomes done: its result, saved as a new file in Results (not on the task itself).
-      { k: "_result", label: "1. Description of the result: what came out of this task? (required to mark it done)", type: "textarea", rows: 3, mark: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: RESULT_PH },
-      { k: "_resultDetails", label: "2. Details of the result: what you found, in more depth (required)", type: "textarea", rows: 6, mark: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: RESULT_DETAILS_PH },
+      { k: "_result", label: "1. Description of the result: what came out of this task? (required to mark it done)", type: "textarea", rows: 3, mark: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done" },
+      { k: "_resultDetails", label: "2. Details of the result: what you found, in more depth (required)", type: "textarea", rows: 6, mark: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done" },
       { k: "_resultLink", label: "3. Link to the document (optional)", type: "url", drive: true, virtual: true, showIf: "status", showIfValue: "done", onlyIf: (cur) => !cur || cur.status !== "done", ph: "https://… (a Drive file, a note, slides…)" },
       { k: "body", label: "Details", type: "textarea", ph: "What does done look like? Links, notes…" },
     ],
@@ -218,8 +218,8 @@ const FORMS = {
     base: (f) => `${f.date || todayIso()}-${slug(f.title)}`,
     fields: [
       { k: "task", label: "Which task does it answer?", type: "select", req: true, opts: resultTaskOptions },
-      { k: "title", label: "1. Description of the result: what came out, in a sentence or two", type: "textarea", rows: 3, req: true, ph: RESULT_PH },
-      { k: "body", label: "2. Details: explain in more depth what you found", type: "textarea", rows: 7, req: true, ph: RESULT_DETAILS_PH },
+      { k: "title", label: "1. Description of the result: what came out, in a sentence or two", type: "textarea", rows: 3, req: true },
+      { k: "body", label: "2. Details: explain in more depth what you found", type: "textarea", rows: 7, req: true },
       { k: "link", label: "3. Link to the document (optional)", type: "url", drive: true, ph: "https://… (a Drive file, a note, slides…)" },
       { k: "owner", label: "By", type: "text", half: true, list: "owners", def: () => Store.auth?.name || "" },
       { k: "date", label: "Date", type: "date", half: true, def: () => todayIso() },
@@ -563,11 +563,10 @@ function tickDialog(id) {
     <h2 class="modal-title" id="modal-title">Mark as done</h2>
     <p class="tick-task">${esc(t.title)}</p>
     <form class="form" id="tick-form" autocomplete="off">
-      <p class="tick-q"><strong>What came out of this task?</strong><br>
-        <span class="muted">Describe the result in a sentence or two, then explain the details: what you found, with its numbers and sources. Both go to Results, under this task, so the whole team (Valentin included) can read them.</span></p>
+      <p class="tick-q"><strong>What came out of this task?</strong></p>
       ${prior.length ? `<p class="tick-prior muted">Already in Results for this task: ${prior.map((r) => `“${esc(excerpt(r.title, 80))}”`).join(", ")}. Add the overall result here.</p>` : ""}
-      <label class="field"><span>1. Description of the result: what came out, in a sentence or two <em class="req">*</em></span><textarea name="summary" rows="3" placeholder="${esc(RESULT_PH)}"></textarea></label>
-      <label class="field"><span>2. Details: explain in more depth what you found <em class="req">*</em></span><textarea name="details" rows="6" placeholder="${esc(RESULT_DETAILS_PH)}"></textarea></label>
+      <label class="field"><span>1. Description of the result: what came out, in a sentence or two <em class="req">*</em></span><textarea name="summary" rows="3"></textarea></label>
+      <label class="field"><span>2. Details: explain in more depth what you found <em class="req">*</em></span><textarea name="details" rows="6"></textarea></label>
       <div class="field"><span class="field-label">3. Link to the document (optional)</span>${linkRow("link", "", "https://… (a Drive file, a note, slides…)")}</div>
       <p class="form-error" hidden></p>
       <div class="tick-actions">
