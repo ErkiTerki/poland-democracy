@@ -1,7 +1,8 @@
 ---
 title: Identify 5-10 possible product owners, considering the trend we picked.
-status: todo
+status: done
 owner: Francesco
 due: 2026-11-12
+completed: 2026-11-11
 ---
 
