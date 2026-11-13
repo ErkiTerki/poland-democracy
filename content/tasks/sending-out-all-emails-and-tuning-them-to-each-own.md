@@ -1,5 +1,5 @@
 ---
-title: Sending out all emails, and tuning them to each Owner.
+title: Sending out all emails to Scope 1 Owners, and tuning each email to each owner.
 status: todo
 owner: Everyone
 due: 2026-11-15
