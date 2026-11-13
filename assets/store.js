@@ -92,10 +92,20 @@ const Store = (() => {
     throw new Error("Couldn't find a free filename.");
   }
 
+  // GitHub answers 409 when two commits land on main within a second or so (e.g. a result, then its task).
+  // Retrying with the same sha is safe: a real edit conflict keeps failing, a timing clash goes through.
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function retry409(fn) {
+    for (let attempt = 1; ; attempt++) {
+      try { return await fn(); }
+      catch (e) { if (e.status !== 409 || attempt >= 4) throw e; await wait(800 * attempt); }
+    }
+  }
+
   async function write(path, text, message, sha) {
     const body = { message, content: toB64(text), branch: "main", ...(sha ? { sha } : {}) };
     try {
-      return await gh(path, { method: "PUT", body: JSON.stringify(body) });
+      return await retry409(() => gh(path, { method: "PUT", body: JSON.stringify(body) }));
     } catch (e) {
       if (e.status === 409 || e.status === 422) throw new Error("Someone changed this at the same time. Close the form, reload the page and try again.");
       throw e;
@@ -105,7 +115,7 @@ const Store = (() => {
   async function remove(path, message) {
     const cur = await gh(path + "?ref=main");
     if (!cur) return;
-    await gh(path, { method: "DELETE", body: JSON.stringify({ message, sha: cur.sha, branch: "main" }) });
+    await retry409(() => gh(path, { method: "DELETE", body: JSON.stringify({ message, sha: cur.sha, branch: "main" }) }));
   }
 
   // ---- local overlay so your own edits show immediately, even after a reload ----
