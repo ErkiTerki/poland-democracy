@@ -3,6 +3,7 @@ title: Focus on Product Owners that carry out Social Media Analysis regarding po
 task: pick-collectively-the-main-product-owners-the-grou
 owner: Francesco
 date: 2026-11-13
+link: https://drive.google.com/file/d/11ynABgeB7L_z3H02zaP8Rl1X2beEVZ8f/view?usp=share_link
 ---
 Our strategy is divided in three main parts: 
 
