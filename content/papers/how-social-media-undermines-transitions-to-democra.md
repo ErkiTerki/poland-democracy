@@ -13,3 +13,5 @@ Does social media help the post-protest phase, to transition to democracy? Case 
 - Fear amplification: in transitions, institutions aren’t stable, so people feel more uncertain about their safety, legitimacy, and what is permissible. Social media accelerates dramatic, emotional content, which travels rapidly within clusters and can heighten fear, mistrust, and social anxiety. This heightening of fear can discourage moderate voices, push people to more extreme positions, or feed cycles of crisis escalation.
 
 - Role of the State: the Egyptian state and military learned from 2011 that ignoring social media was dangerous. By 2012-2013, they actively used it for surveillance (monitoring activists), flooding and counter-mobilisation.
+
+- Important: METHODOLOGY:
