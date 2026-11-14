@@ -12,4 +12,8 @@ Does exposure to an algorithmically curated feed (vs chronological feed) affect 
 
 2) Social media are not homogeneous: the effect of algorithms might change based on platform. 
 
-- Study Design:
+- Study Design: authors conducted RCT on 5,000 voluntary participants and assigned them "Chronological" or "Algorithmic" feed on X, paying them to stay on it for 7 weeks - users were also classified on the basis of whether, before the experiment, they were using a Chronological or an Algorithmic feed. 
+
+- Results: switching the algorithm off the algorithm for users that were using the algorithm before had no effect - lock-in effects had already kicked in through the "following option". Instead, turning the algorithm on for users who previously were on the chronological feed had significant effects: shift towards conservative views. Moreover, besides traditional echo-chamber effects that were in place, conservative content was promoted both to liberal and conservative users. 
+
+- Mechanism: they were surveyed pre and post-treatment using the YouGov platform, to understand their political orientation. The algorithm is shown to be promoting extremist, right-wing content while demoting traditional media.
