@@ -22,6 +22,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history: build.py dates each reading by its first commit
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

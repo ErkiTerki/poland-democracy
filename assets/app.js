@@ -962,7 +962,7 @@ function resultTaskOptions(current) {
 
 function viewPapers() {
   const add = addBtn("papers", "+ Add reading");
-  const head = pageHead("Library", "Literature", "Every paper, report and article we use, grouped by the task it's for. Click one to open its link and notes.", SITE.papers.length ? add : "");
+  const head = pageHead("Library", "Literature", "Every paper, report and article we use, newest first, grouped by the task it's for. Click one to open its link and notes.", SITE.papers.length ? add : "");
   if (!SITE.papers.length) return `${head}<div class="empty"><h3>No readings yet</h3><p>Add a paper, report or article the team should know about.</p>${add}</div>`;
   const filter = ownerFilter(SITE.papers);
   const taskOf = (p) => SITE.tasks.find((t) => t.id === p.task);
@@ -972,7 +972,9 @@ function viewPapers() {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
   }
-  const keys = [...groups.keys()].sort((a, b) => (a || "9999").localeCompare(b || "9999"));
+  // Newest first: latest task date on top (undated "General background" last), newest reading first in each group.
+  const keys = [...groups.keys()].sort((a, b) => (b || "0000").localeCompare(a || "0000"));
+  const newest = (a, b) => (b.added || "9999").localeCompare(a.added || "9999") || a.title.localeCompare(b.title);
   const row = (p) => {
     const t = taskOf(p);
     const sub = [p.url ? esc(p.url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]) : "",
@@ -984,7 +986,7 @@ function viewPapers() {
   };
   return head + filter.html + keys.map((k) =>
     `<div class="group-title">${k ? "For tasks due " + fmtDate(k, { weekday: "long", day: "numeric", month: "long" }) : "General background"}</div>` +
-    rowsHtml(groups.get(k).sort((a, b) => (a.owner || "").localeCompare(b.owner || "") || a.title.localeCompare(b.title)), row)).join("");
+    rowsHtml(groups.get(k).sort(newest), row)).join("");
 }
 
 // "2026-10-29 14:05" → "Today, 14:05" / "29 Oct 2026, 14:05"

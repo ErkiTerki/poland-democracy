@@ -14,6 +14,7 @@ Run:  python3 build.py   (GitHub Actions runs it on every push to main)
 """
 import json
 import pathlib
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).parent
@@ -41,6 +42,16 @@ def parse(path):
     return meta
 
 
+def added_date(rel):
+    """ISO time of the commit that first added this file ('' if git history isn't available)."""
+    try:
+        out = subprocess.run(["git", "log", "--diff-filter=A", "--follow", "--format=%cI", "--", rel],
+                             cwd=ROOT, capture_output=True, text=True, timeout=20).stdout.split()
+        return out[-1] if out else ""
+    except Exception:
+        return ""
+
+
 def main():
     site = {}
     errors = []
@@ -52,6 +63,10 @@ def main():
             except ValueError as e:
                 errors.append(str(e))
         site[name] = items
+    # Readings: when each file was first committed, so the Literature page can show the newest first.
+    for item in site["papers"]:
+        if not item.get("added"):
+            item["added"] = added_date(item["path"])
     overview = ROOT / "content" / "overview.md"
     site["overview"] = parse(overview) if overview.exists() else None
     if errors:
