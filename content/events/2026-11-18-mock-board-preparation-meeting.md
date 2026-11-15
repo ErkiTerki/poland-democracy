@@ -1,5 +1,5 @@
 ---
-title: Mock Board Preparation Meeting
+title: Mock Board Preparation Meeting and OKRs-Moscow Redo
 date: 2026-11-18
 time: 18:00
 type: meeting
