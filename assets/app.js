@@ -1085,8 +1085,18 @@ function viewGuide() {
     </div>`;
 }
 
+const OWNERS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1LmNEm1K09zjgIyfoqbTXWSN7NMo79ZmY3YbiGyRdAzA/edit?gid=0#gid=0";
+
+function viewOwners() {
+  return pageHead("Outreach", "Project owners", "") + `
+    <a class="card data-drive" href="${OWNERS_SHEET_URL}" target="_blank" rel="noopener">
+      <div><b>PROJECT OWNER EXCEL</b><span>The team's shared Google Sheet of project owners.</span></div>
+      <span class="btn primary">Open sheet ↗</span>
+    </a>`;
+}
+
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, results: viewResults, findings: viewResults, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, guide: viewGuide };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, results: viewResults, findings: viewResults, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, owners: viewOwners, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];

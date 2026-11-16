@@ -92,7 +92,7 @@ h1, h2, h3 { margin: 0; }
 nav { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 999px; }
 nav a {
   color: var(--text-2); text-decoration: none; font-weight: 500; font-size: 0.9rem;
-  padding: 6px 14px; border-radius: 999px; transition: background .15s, color .15s;
+  padding: 6px 10px; border-radius: 999px; transition: background .15s, color .15s;
 }
 nav a:hover { color: var(--text); }
 nav a.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
@@ -399,6 +399,8 @@ dialog[open] { animation: pop .16s ease-out; }
 /* ---------- guide ---------- */
 .nav-short { display: none; }
 @media (max-width: 560px) { .nav-long { display: none; } .nav-short { display: inline; } }
+/* Project owners: short label until the header has room for the full one */
+@media (max-width: 1180px) { nav a.nav-owners .nav-long { display: none; } nav a.nav-owners .nav-short { display: inline; } }
 .g-paths { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 640px) { .g-paths { grid-template-columns: 1fr; } }
 .g-path { display: flex; flex-direction: column; gap: 4px; padding: 20px 22px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
