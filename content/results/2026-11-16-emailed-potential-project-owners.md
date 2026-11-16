@@ -4,4 +4,4 @@ task: email-your-4-project-owners-4
 owner: Filipa
 date: 2026-11-16
 ---
-AI Forensics, Interface, and La Quadrature du Net emailed. Left out Meteoria for now, didn't seem immediatly relevant, more towards scope 2.
+AI Forensics, Interface, and La Quadrature du Net emailed. Left out Meteoria for now; it didn't seem immediately relevant, more towards scope 2.
