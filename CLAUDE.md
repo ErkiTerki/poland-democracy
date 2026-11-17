@@ -47,7 +47,7 @@ In a result's wording, keep description, prediction and causal claims apart: a c
 is a description, and the summary or body should say so. (Older results migrated from the old Findings page may still
 carry `type` and `source` fields; keep them.)
 
-The overview headline lives in `content/overview.md`: `title:` and `question:` fields (no body).
+The overview headline lives in `content/overview.md`: `title:` (wrap the accent words in `*…*`) and `question:` fields (no body).
 Events appear on the Overview calendar. `board` events also drive the countdown.
 
 Notes belong to whoever wrote them: don't edit a teammate's note unless they ask. Notes are public too, so no personal

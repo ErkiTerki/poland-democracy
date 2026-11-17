@@ -806,7 +806,8 @@ function viewOverview() {
   const today = todayIso();
   const nextBoard = occurrences(today, "9999-12-31").find((e) => e.type === "board");
   const openTasks = SITE.tasks.filter((t) => t.status !== "done").length;
-  const title = esc(o.title || "Overview").replace("U-turn", "<em>U‑turn</em>");
+  // *words* in the overview title are set in the red italic accent.
+  const title = esc(o.title || "Overview").replace(/\*([^*]+)\*/g, "<em>$1</em>");
   if (view.calY === null) { const t = new Date(); view.calY = t.getFullYear(); view.calM = t.getMonth(); }
 
   return `
