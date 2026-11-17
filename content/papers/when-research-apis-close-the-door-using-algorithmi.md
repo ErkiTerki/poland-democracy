@@ -4,4 +4,4 @@ url: https://kinit.sk/when-research-apis-close-the-door/
 owner: Francesco
 task: come-up-with-a-plan-for-our-project-methodology
 ---
-
+It explains the procedure to apply for TikTok's API
