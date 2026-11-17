@@ -754,7 +754,7 @@ function viewOverview() {
 }
 
 function pageHead(eyebrow, title, sub, action) {
-  return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1 class="page-title">${title}</h1>${sub ? `<p class="page-sub">${sub}</p>` : ""}</div>${action || ""}</div>`;
+  return `<div class="page-head"><div>${eyebrow ? `<div class="eyebrow">${eyebrow}</div>` : ""}<h1 class="page-title">${title}</h1>${sub ? `<p class="page-sub">${sub}</p>` : ""}</div>${action || ""}</div>`;
 }
 
 // Group tasks by due date. Within a date, any Everyone task is the shared goal that heads that date's tasks.
@@ -1212,14 +1212,14 @@ const RESOURCES = [
   { key: "notes", label: "Notes", desc: "Meeting notes, call summaries and ideas, by author.", n: () => SITE.notes.length, unit: "note" },
 ];
 function viewResources() {
-  return pageHead("Reference", "Resources", "") + `<div class="res-grid">${RESOURCES.map((r) => `
+  return pageHead("", "Resources", "") + `<div class="res-grid">${RESOURCES.map((r) => `
     <a class="card res-card" href="#${r.key}">
       <span class="res-title">${r.label}</span>
       <span class="res-desc">${r.desc}</span>
       <span class="res-n">${r.n()} ${r.unit}${r.n() === 1 ? "" : "s"} →</span>
     </a>`).join("")}</div>`;
 }
-const resourcesBar = (key) => `<div class="res-bar" role="navigation" aria-label="Resources"><a href="#resources" class="res-back">Resources</a><span class="seg">${RESOURCES.map((r) =>
+const resourcesBar = (key) => `<div class="res-bar" role="navigation" aria-label="Resources"><a href="#resources" class="btn ghost res-back">← Back to Resources</a><span class="seg">${RESOURCES.map((r) =>
   `<a href="#${r.key}" class="${r.key === key ? "on" : ""}">${r.label}</a>`).join("")}</span></div>`;
 
 // ---------- routing + clicks ----------
