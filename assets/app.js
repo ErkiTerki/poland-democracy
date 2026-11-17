@@ -259,7 +259,12 @@ const FORMS = {
   outreach: {
     noun: "project owner", dir: "content/outreach", order: ["title", "contact", "reach", "contacted", "owner", "stage"],
     base: (f) => slug(f.title),
-    stamp: (f) => { if (!PO_STAGES[f.stage]) f.stage = "contacted"; },
+    // The edit form shows only the notes; the stage history is kept and re-attached on save.
+    bodyView: (item) => poSplit(item.body).notes,
+    stamp: (f, current) => {
+      if (!PO_STAGES[f.stage]) f.stage = "contacted";
+      if (current) f.body = poJoin(f.body, poSplit(current.body).log);
+    },
     fields: [
       { k: "title", label: "Organisation", type: "text", req: true, ph: "e.g. Global Witness" },
       { k: "contact", label: "Person contacted (if not the general address)", type: "text", ph: "e.g. Ava Lee" },
@@ -442,7 +447,7 @@ async function openForm(collection, id, defaults = {}) {
   const shown = spec.fields.filter((f) => !f.onlyIf || f.onlyIf(current));
   const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), ...SITE.datasets.map((d) => d.owner), ...(SITE.outreach || []).map((o) => o.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
-    if (current) return current[f.k];
+    if (current) return f.k === "body" && spec.bodyView ? spec.bodyView(current) : current[f.k];
     if (f.k in defaults) return defaults[f.k];
     return typeof f.def === "function" ? f.def() : f.def;
   };
@@ -488,7 +493,7 @@ async function openForm(collection, id, defaults = {}) {
     }
     const problem = spec.finish?.(fields, extra);
     if (problem) return fail(problem);
-    spec.stamp?.(fields);
+    spec.stamp?.(fields, current);
     const text = Store.serialize(fields, spec.order);
     btn.disabled = true; btn.textContent = "Saving…";
     let made = null;
@@ -1146,10 +1151,86 @@ function viewOwners() {
 function openOwner(id) {
   const o = find("outreach", id);
   const st = poStage(o);
-  viewModal({ title: o.title, body: o.body, accent: false, edit: { collection: "outreach", item: o },
+  viewModal({ title: o.title, body: poSplit(o.body).notes, accent: false, edit: { collection: "outreach", item: o },
     actions: `<button class="btn primary" data-move="${esc(o.id)}">Move to another stage…</button>`,
     facts: `${chip(PO_STAGES[st].label, PO_STAGES[st].chip)}${o.contact ? chip(o.contact, "slate") : ""}${who(o.owner)}${o.contacted ? chip("Contacted " + fmtDate(o.contacted, { day: "numeric", month: "long" })) : ""}`,
-    extra: o.reach ? `<p class="po-reach">${reachHtml(o.reach)}</p>` : "" });
+    extra: (o.reach ? `<p class="po-reach">${reachHtml(o.reach)}</p>` : "") + poHistory(o) });
+}
+
+// The body of an outreach file = free notes, then one line per stage change:
+// "- **17 Nov 2026: Replied** (Viola). What happened."
+const PO_LOG_RE = /^- \*\*(.+?): (.+?)\*\* \((.+?)\)\.\s*(.*)$/;
+function poSplit(body) {
+  const notes = [], log = [];
+  for (const line of String(body || "").split("\n")) {
+    const m = line.match(PO_LOG_RE);
+    if (m) log.push({ date: m[1], stage: m[2], who: m[3], text: m[4] });
+    else notes.push(line);
+  }
+  return { notes: notes.join("\n").trim(), log };
+}
+const poLine = (e) => `- **${e.date}: ${e.stage}** (${e.who}). ${String(e.text).trim().replace(/\s*\n\s*/g, " ")}`;
+const poJoin = (notes, log) => [String(notes || "").trim(), ...log.map(poLine)].filter(Boolean).join("\n");
+const poDateLabel = (isoDate) => fmtDate(isoDate, { day: "numeric", month: "short", year: "numeric" });
+function poDateIso(label) { // "17 Nov 2026" → "2026-11-17"
+  const m = String(label).match(/(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})/);
+  const mi = m ? MONTHS.findIndex((x) => x.slice(0, 3).toLowerCase() === m[2].toLowerCase()) : -1;
+  return mi < 0 ? todayIso() : `${m[3]}-${pad(mi + 1)}-${pad(+m[1])}`;
+}
+
+function poHistory(o) {
+  const { log } = poSplit(o.body);
+  const first = `<li><span class="h-stage">${esc(PO_STAGES.contacted.label)}</span><span class="h-meta">${o.contacted ? esc(fmtDate(o.contacted, { day: "numeric", month: "short", year: "numeric" })) : ""}${o.owner ? " · " + esc(o.owner) : ""}</span></li>`;
+  return `<div class="po-history"><h3>History</h3><ol>${first}${log.map((e, i) => `
+    <li><span class="h-stage">${esc(e.stage)}</span><span class="h-meta">${esc(e.date)} · ${esc(e.who)}</span>
+      <button class="h-edit" type="button" data-logedit="${esc(o.id)}" data-i="${i}">Edit</button>
+      <p>${esc(e.text)}</p></li>`).join("")}</ol></div>`;
+}
+
+// Change what was written for an earlier stage (text and date). The stage itself stays.
+function logEditDialog(id, i) {
+  const o = find("outreach", id);
+  const e = o && poSplit(o.body).log[i];
+  if (!e) return;
+  showModal(`
+    <div class="modal-top"></div>
+    <h2 class="modal-title" id="modal-title">Edit: ${esc(e.stage)}</h2>
+    <p class="tick-task">${esc(o.title)}</p>
+    <form class="form" id="log-form" autocomplete="off">
+      <label class="field"><span>What happened? <em class="req">*</em></span><textarea name="details" rows="5">${esc(e.text)}</textarea></label>
+      <label class="field half"><span>Date</span><input type="date" name="date" value="${poDateIso(e.date)}"></label>
+      <p class="form-error" hidden></p>
+      <div class="tick-actions">
+        <button class="btn primary" type="submit">Save</button>
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>`);
+  const form = document.getElementById("log-form");
+  const err = form.querySelector(".form-error");
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const text = form.elements.details.value.trim();
+    if (!text) { err.hidden = false; err.textContent = "This can't be empty."; return; }
+    const btn = form.querySelector("[type=submit]");
+    form.querySelectorAll("button").forEach((b) => (b.disabled = true)); btn.textContent = "Saving…";
+    try {
+      const r = await Store.read(o.path);
+      if (!r) throw new Error("That project owner no longer exists.");
+      const fields = { ...r.item }; delete fields.id; delete fields.path;
+      const parts = poSplit(fields.body);
+      if (!parts.log[i]) throw new Error("Someone changed this history meanwhile. Close and try again.");
+      parts.log[i] = { ...parts.log[i], text, date: poDateLabel(form.elements.date.value || todayIso()) };
+      fields.body = poJoin(parts.notes, parts.log);
+      const out = Store.serialize(fields, FORMS.outreach.order);
+      await Store.write(o.path, out, `outreach: edit "${fields.title}" history (via site, @${Store.auth.login})`, r.sha);
+      applyLocal("outreach", o.path, Store.parse(out, o.path));
+      openOwner(id);
+      toast("<strong>Saved.</strong> Live for everyone in about a minute.");
+    } catch (ex) {
+      form.querySelectorAll("button").forEach((b) => (b.disabled = false)); btn.textContent = "Save";
+      err.hidden = false; err.textContent = ex.status === 401 ? "Your token was rejected (expired?). Connect again." : ex.message;
+    }
+  });
 }
 
 // Moving an owner to another stage always needs a short account of what happened; it's added to the owner's log.
@@ -1191,12 +1272,13 @@ function moveDialog(id) {
       if (!r) throw new Error("That project owner no longer exists.");
       const fields = { ...r.item, stage };
       delete fields.id; delete fields.path;
-      const line = `- **${fmtDate(date, { day: "numeric", month: "short", year: "numeric" })}: ${PO_STAGES[stage].label}** (${Store.auth.name || Store.auth.login}). ${details}`;
-      fields.body = [String(fields.body || "").trim(), line].filter(Boolean).join("\n");
+      const parts = poSplit(fields.body); // earlier stages are kept as they are
+      parts.log.push({ date: poDateLabel(date), stage: PO_STAGES[stage].label, who: Store.auth.name || Store.auth.login, text: details });
+      fields.body = poJoin(parts.notes, parts.log);
       const text = Store.serialize(fields, FORMS.outreach.order);
       await Store.write(o.path, text, `outreach: "${fields.title}" → ${stage} (via site, @${Store.auth.login})`, r.sha);
       applyLocal("outreach", o.path, Store.parse(text, o.path));
-      modal.close();
+      openOwner(id);
       toast(`<strong>Moved to ${esc(PO_STAGES[stage].label)}.</strong> Live for everyone in about a minute.`);
     } catch (ex) {
       form.querySelectorAll("button").forEach((b) => (b.disabled = false)); btn.textContent = "Move";
@@ -1243,7 +1325,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
   const driveBtn = e.target.closest("[data-drive]");
   if (driveBtn) { e.preventDefault(); return driveAction(driveBtn); }
-  const el = e.target.closest("[data-po],[data-move],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-po],[data-move],[data-logedit],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -1258,6 +1340,7 @@ document.addEventListener("click", (e) => {
   if (d.tick) return requireAuth(() => tickDialog(d.tick));
   if (d.po) return openOwner(d.po);
   if (d.move) return requireAuth(() => moveDialog(d.move));
+  if (d.logedit) return requireAuth(() => logEditDialog(d.logedit, +d.i));
   if (d.result) {
     const r = find("results", d.result);
     const t = SITE.tasks.find((x) => x.id === r.task);

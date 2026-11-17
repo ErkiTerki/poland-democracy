@@ -664,3 +664,15 @@ dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; visibili
 .res-back { text-decoration: none; }
 .res-bar .seg a { font: 500 0.84rem var(--sans); color: var(--text-2); padding: 6px 14px; border-radius: 8px; text-decoration: none; }
 .res-bar .seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+/* Project owner: stage history */
+.po-history { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-strong); }
+.po-history h3 { font: 600 0.75rem var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.po-history ol { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--border-strong); display: grid; gap: 12px; }
+.po-history li { position: relative; }
+.po-history li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
+.po-history .h-stage { font-weight: 600; margin-right: 8px; }
+.po-history .h-meta { color: var(--muted); font-size: 0.86rem; }
+.po-history p { margin: 4px 0 0; color: var(--text-2); font-size: 0.92rem; line-height: 1.5; }
+.po-history .h-edit { margin-left: 8px; border: 0; background: none; color: var(--red); font: 500 0.82rem var(--sans); cursor: pointer; padding: 0; }
+.po-history .h-edit:hover { text-decoration: underline; }
