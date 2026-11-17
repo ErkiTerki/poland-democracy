@@ -1205,14 +1205,32 @@ function moveDialog(id) {
   });
 }
 
+// Resources: one menu entry for the three reference sections (Literature, Data, Notes).
+const RESOURCES = [
+  { key: "papers", label: "Literature", desc: "Papers, reports and articles, grouped by the task they're for.", n: () => SITE.papers.length, unit: "reading" },
+  { key: "datasets", label: "Data", desc: "The datasets we use, what's in them, and the team's data folder.", n: () => SITE.datasets.length, unit: "dataset" },
+  { key: "notes", label: "Notes", desc: "Meeting notes, call summaries and ideas, by author.", n: () => SITE.notes.length, unit: "note" },
+];
+function viewResources() {
+  return pageHead("Reference", "Resources", "") + `<div class="res-grid">${RESOURCES.map((r) => `
+    <a class="card res-card" href="#${r.key}">
+      <span class="res-title">${r.label}</span>
+      <span class="res-desc">${r.desc}</span>
+      <span class="res-n">${r.n()} ${r.unit}${r.n() === 1 ? "" : "s"} →</span>
+    </a>`).join("")}</div>`;
+}
+const resourcesBar = (key) => `<div class="res-bar" role="navigation" aria-label="Resources"><a href="#resources" class="res-back">Resources</a><span class="seg">${RESOURCES.map((r) =>
+  `<a href="#${r.key}" class="${r.key === key ? "on" : ""}">${r.label}</a>`).join("")}</span></div>`;
+
 // ---------- routing + clicks ----------
-const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, results: viewResults, findings: viewResults, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, owners: viewOwners, guide: viewGuide };
+const VIEWS = { overview: viewOverview, tasks: viewTasks, past: viewPast, results: viewResults, findings: viewResults, datasets: viewDatasets, papers: viewPapers, notes: viewNotes, owners: viewOwners, resources: viewResources, guide: viewGuide };
 
 function render() {
   const route = location.hash.slice(1).split("?")[0];
   const key = VIEWS[route] ? route : "overview";
-  document.getElementById("app").innerHTML = VIEWS[key]();
-  const navKey = key === "past" ? "tasks" : key === "findings" ? "results" : key;
+  const sub = RESOURCES.some((r) => r.key === key);
+  document.getElementById("app").innerHTML = (sub ? resourcesBar(key) : "") + VIEWS[key]();
+  const navKey = key === "past" ? "tasks" : key === "findings" ? "results" : sub ? "resources" : key;
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + navKey));
   // On a phone the menu scrolls sideways: bring the current section into view.
   const nav = document.getElementById("nav"), on = nav.querySelector("a.active");

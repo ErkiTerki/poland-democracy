@@ -400,7 +400,7 @@ dialog[open] { animation: pop .16s ease-out; }
 .nav-short { display: none; }
 @media (max-width: 560px) { .nav-long { display: none; } .nav-short { display: inline; } }
 /* Project owners: short label until the header has room for the full one */
-@media (max-width: 1180px) { nav a.nav-owners .nav-long { display: none; } nav a.nav-owners .nav-short { display: inline; } }
+@media (max-width: 1020px) { nav a.nav-owners .nav-long { display: none; } nav a.nav-owners .nav-short { display: inline; } }
 .g-paths { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 640px) { .g-paths { grid-template-columns: 1fr; } }
 .g-path { display: flex; flex-direction: column; gap: 4px; padding: 20px 22px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; }
@@ -651,3 +651,18 @@ dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; visibili
 .po-sub { white-space: normal; }
 .po-sub .out-link, .po-reach .out-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .po-reach { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+/* Resources: landing cards + the switcher on Literature / Data / Notes */
+.res-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 760px) { .res-grid { grid-template-columns: 1fr; } }
+.res-card { display: flex; flex-direction: column; gap: 8px; padding: 24px 22px; text-decoration: none; color: inherit; border-top: 4px solid var(--red); transition: transform .15s, box-shadow .15s; }
+.res-card:hover { transform: translateY(-2px); }
+.res-title { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; }
+.res-desc { color: var(--text-2); font-size: 0.92rem; line-height: 1.5; flex: 1; }
+.res-n { color: var(--red); font-weight: 600; font-size: 0.88rem; margin-top: 6px; }
+.res-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 6px 0 -6px; }
+.res-back { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+.res-back::after { content: " /"; }
+.res-back:hover { color: var(--red); }
+.res-bar .seg a { font: 500 0.84rem var(--sans); color: var(--text-2); padding: 6px 14px; border-radius: 8px; text-decoration: none; }
+.res-bar .seg a.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
