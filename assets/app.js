@@ -200,7 +200,7 @@ const FORMS = {
     ],
   },
   events: {
-    noun: "event", dir: "content/events", order: ["title", "date", "time", "type", "location", "repeat", "until", "skip"],
+    noun: "event", dir: "content/events", order: ["title", "date", "time", "type", "location", "repeat", "until", "skip", "times"],
     base: (f) => `${f.date}-${slug(f.title)}`,
     fields: [
       { k: "title", label: "Event", type: "text", req: true, ph: "e.g. Mentor check-in" },
@@ -637,7 +637,8 @@ function occurrences(fromIso, toIso) {
       const until = ev.until || toIso;
       const skip = new Set(String(ev.skip || "").split(/[\s,]+/).filter(Boolean)); // single dates removed from the series
       for (let d = parseDate(ev.date); iso(d) <= until && iso(d) <= toIso; d.setDate(d.getDate() + 7)) {
-        if (iso(d) >= fromIso && !skip.has(iso(d))) out.push({ ...ev, on: iso(d) });
+        const times = eventTimes(ev); // single dates with a different time
+        if (iso(d) >= fromIso && !skip.has(iso(d))) out.push({ ...ev, on: iso(d), time: times[iso(d)] || ev.time });
       }
     } else if (ev.date >= fromIso && ev.date <= toIso) {
       out.push({ ...ev, on: ev.date });
@@ -647,15 +648,76 @@ function occurrences(fromIso, toIso) {
   return out.sort((a, b) => a.on.localeCompare(b.on) || (rank[a.type] ?? 3) - (rank[b.type] ?? 3) || (a.time || "").localeCompare(b.time || ""));
 }
 
+// "2026-11-20=14:00, 2026-11-27=09:30" → { "2026-11-20": "14:00", … }
+function eventTimes(ev) {
+  const out = {};
+  for (const part of String(ev.times || "").split(/[\s,]+/)) {
+    const m = part.match(/^(\d{4}-\d{2}-\d{2})=(\d{1,2}:\d{2})$/);
+    if (m) out[m[1]] = m[2];
+  }
+  return out;
+}
+
 function openEvent(id, on) {
-  const ev = find("events", id);
+  const base = find("events", id);
+  const ev = { ...base, time: (base.repeat === "weekly" && eventTimes(base)[on]) || base.time };
   const t = EVENT_TYPES[ev.type] || EVENT_TYPES.other;
   viewModal({
     title: ev.title,
     facts: `${chip(t.label, t.chip)}${chip(fmtDate(on, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}${chip(ev.time)}${chip(ev.location)}${ev.repeat === "weekly" ? chip("Every week" + (ev.until ? " until " + fmtDate(ev.until, { day: "numeric", month: "short" }) : "")) : ""}`,
     body: ev.body, accent: ev.type === "board", edit: { collection: "events", item: ev },
-    actions: ev.repeat === "weekly" ? `<button class="btn danger" data-skip="${esc(ev.id)}" data-on="${esc(on)}">Delete only ${esc(fmtDate(on, { day: "numeric", month: "short" }))}</button>` : "",
+    actions: ev.repeat === "weekly" ? `<button class="btn ghost" data-retime="${esc(ev.id)}" data-on="${esc(on)}">Change time on ${esc(fmtDate(on, { day: "numeric", month: "short" }))}</button><button class="btn danger" data-skip="${esc(ev.id)}" data-on="${esc(on)}">Delete only ${esc(fmtDate(on, { day: "numeric", month: "short" }))}</button>` : "",
   });
+}
+
+// Give one date of a weekly event its own time (stored in the event's `times` list); empty = back to the usual time.
+function retimeDialog(id, on) {
+  const ev = find("events", id);
+  if (!ev) return;
+  const times = eventTimes(ev);
+  const day = fmtDate(on, { weekday: "long", day: "numeric", month: "long" });
+  showModal(`
+    <div class="modal-top"></div>
+    <h2 class="modal-title" id="modal-title">Change the time on ${esc(day)}</h2>
+    <p class="tick-task">${esc(ev.title)}${ev.time ? ` · usually ${esc(ev.time)}` : ""}. The other weeks keep their time.</p>
+    <form class="form" id="retime-form" autocomplete="off">
+      <label class="field half"><span>Time on ${esc(fmtDate(on, { day: "numeric", month: "short" }))}</span><input type="time" name="time" value="${esc(times[on] || ev.time || "")}"></label>
+      <p class="form-error" hidden></p>
+      <div class="tick-actions">
+        <button class="btn primary" type="submit">Save</button>
+        ${times[on] ? '<button class="btn ghost" type="button" data-reset>Back to the usual time</button>' : ""}
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>`);
+  const form = document.getElementById("retime-form");
+  const err = form.querySelector(".form-error");
+  const save = async (time) => {
+    form.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    try {
+      const r = await Store.read(ev.path);
+      if (!r) throw new Error("That event no longer exists.");
+      const fields = { ...r.item }; delete fields.id; delete fields.path;
+      const map = eventTimes(fields);
+      if (time && time !== fields.time) map[on] = time; else delete map[on];
+      const list = Object.keys(map).sort().map((d) => `${d}=${map[d]}`).join(", ");
+      if (list) fields.times = list; else delete fields.times;
+      const text = Store.serialize(fields, FORMS.events.order);
+      await Store.write(ev.path, text, `events: time on ${on} of "${fields.title}" (via site, @${Store.auth.login})`, r.sha);
+      applyLocal("events", ev.path, Store.parse(text, ev.path));
+      modal.close();
+      toast(`<strong>${esc(day)}: ${time && time !== fields.time ? esc(time) : "back to the usual time"}.</strong> Live for everyone in about a minute.`);
+    } catch (ex) {
+      form.querySelectorAll("button").forEach((b) => (b.disabled = false));
+      err.hidden = false; err.textContent = ex.status === 401 ? "Your token was rejected (expired?). Connect again." : ex.message;
+    }
+  };
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const t = form.elements.time.value;
+    if (!t) { err.hidden = false; err.textContent = "Pick a time."; return; }
+    save(t);
+  });
+  form.querySelector("[data-reset]")?.addEventListener("click", () => save(""));
 }
 
 // Remove one date from a weekly event: the date goes into the event's `skip` list; the rest of the series stays.
@@ -1386,7 +1448,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
   const driveBtn = e.target.closest("[data-drive]");
   if (driveBtn) { e.preventDefault(); return driveAction(driveBtn); }
-  const el = e.target.closest("[data-skip],[data-po],[data-move],[data-logedit],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-retime],[data-skip],[data-po],[data-move],[data-logedit],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -1400,6 +1462,7 @@ document.addEventListener("click", (e) => {
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.tick) return requireAuth(() => tickDialog(d.tick));
   if (d.po) return openOwner(d.po);
+  if (d.retime) return requireAuth(() => retimeDialog(d.retime, d.on));
   if (d.skip) return requireAuth(() => skipOccurrence(d.skip, d.on, el));
   if (d.move) return requireAuth(() => moveDialog(d.move, d.stage));
   if (d.logedit) return requireAuth(() => logEditDialog(d.logedit, +d.i));
