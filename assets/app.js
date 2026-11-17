@@ -255,6 +255,20 @@ const FORMS = {
       { k: "body", label: "Notes (optional)", type: "textarea", rows: 6, ph: "Why it's useful, which part to read… What you concluded goes in Results." },
     ],
   },
+  // Project owners we reached out to. The stage changes only through "Move to…", which asks what happened.
+  outreach: {
+    noun: "project owner", dir: "content/outreach", order: ["title", "contact", "reach", "contacted", "owner", "stage"],
+    base: (f) => slug(f.title),
+    stamp: (f) => { if (!PO_STAGES[f.stage]) f.stage = "contacted"; },
+    fields: [
+      { k: "title", label: "Organisation", type: "text", req: true, ph: "e.g. Global Witness" },
+      { k: "contact", label: "Person contacted (if not the general address)", type: "text", ph: "e.g. Ava Lee" },
+      { k: "reach", label: "Email or LinkedIn", type: "text", req: true, ph: "info@… or https://www.linkedin.com/in/…" },
+      { k: "contacted", label: "Contacted on", type: "date", half: true, req: true, def: () => todayIso() },
+      { k: "owner", label: "Contacted by", type: "text", half: true, req: true, list: "owners", def: () => Store.auth?.name || "" },
+      { k: "body", label: "Notes (optional)", type: "textarea", rows: 4 },
+    ],
+  },
   notes: {
     noun: "note", dir: "content/notes", order: ["title", "author", "updated"],
     base: (f) => [slug(f.author).split("-")[0], slug(f.title)].filter(Boolean).join("-"),
@@ -426,7 +440,7 @@ async function openForm(collection, id, defaults = {}) {
     } catch (e) { modal.close(); return toast(esc(e.message), "err"); }
   }
   const shown = spec.fields.filter((f) => !f.onlyIf || f.onlyIf(current));
-  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), ...SITE.datasets.map((d) => d.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
+  const owners = [...new Set([...SITE.tasks.map((t) => t.owner), ...SITE.notes.map((n) => n.author), ...SITE.papers.map((p) => p.owner), ...SITE.datasets.map((d) => d.owner), ...(SITE.outreach || []).map((o) => o.owner), Store.auth?.name].filter((o) => o && o !== "unassigned" && o !== "team"))];
   const values = (f) => {
     if (current) return current[f.k];
     if (f.k in defaults) return defaults[f.k];
@@ -1087,12 +1101,108 @@ function viewGuide() {
 
 const OWNERS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1LmNEm1K09zjgIyfoqbTXWSN7NMo79ZmY3YbiGyRdAzA/edit?gid=0#gid=0";
 
+// Outreach stages, in order. Each owner starts as "contacted" and moves on with a written reason.
+const PO_STAGES = {
+  contacted: { label: "Contacted", chip: "" },
+  replied: { label: "Replied", chip: "slate" },
+  call: { label: "Call held", chip: "green" },
+  final: { label: "Our project owner", chip: "red" },
+};
+const poStage = (o) => (PO_STAGES[o.stage] ? o.stage : "contacted");
+
+// "info@x.org", "https://www.linkedin.com/in/…", plain words: each becomes a link or text.
+function reachHtml(reach) {
+  return String(reach || "").split(/\s*(?:·|\||,|;)\s*|\s+(?=https?:)/).filter(Boolean).map((r) => {
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r)) return `<a class="out-link" href="mailto:${esc(r)}">${esc(r)}</a>`;
+    if (/^https?:\/\//.test(r)) {
+      const host = r.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+      return `<a class="out-link" href="${esc(r)}" target="_blank" rel="noopener">${/linkedin\.com/.test(host) ? "LinkedIn" : esc(host)} ↗</a>`;
+    }
+    return esc(r);
+  }).join(" · ");
+}
+
 function viewOwners() {
-  return pageHead("Outreach", "Project owners", "") + `
-    <a class="card data-drive" href="${OWNERS_SHEET_URL}" target="_blank" rel="noopener">
-      <div><b>PROJECT OWNER EXCEL</b><span>The team's shared Google Sheet of project owners.</span></div>
-      <span class="btn primary">Open sheet ↗</span>
-    </a>`;
+  const all = SITE.outreach || [];
+  const add = addBtn("outreach", "+ Add project owner");
+  const sheet = `<a class="btn ghost" href="${OWNERS_SHEET_URL}" target="_blank" rel="noopener">Team sheet ↗</a>`;
+  const head = pageHead("Outreach", "Project owners", "", `<span class="head-actions">${sheet}${add}</span>`);
+  if (!all.length) return `${head}<div class="empty"><h3>No project owners yet</h3><p>Add each organisation you contact.</p>${add}</div>`;
+  const filter = ownerFilter(all);
+  const shown = all.filter(filter.keep);
+  const order = Object.keys(PO_STAGES).reverse(); // furthest stage first
+  const row = (o) => `<div class="row" data-po="${esc(o.id)}" role="button" tabindex="0">
+      <div><div class="row-title">${esc(o.title)}${o.contact ? `<span class="po-person"> · ${esc(o.contact)}</span>` : ""}</div>
+        <div class="row-sub po-sub">${o.reach ? reachHtml(o.reach) : ""}${o.contacted ? `${o.reach ? " · " : ""}Contacted ${fmtDate(o.contacted, { day: "numeric", month: "short" })}` : ""}</div></div>
+      <div class="row-right">${who(o.owner)}</div>
+    </div>`;
+  return head + filter.html + order.filter((k) => shown.some((o) => poStage(o) === k)).map((k) => {
+    const list = shown.filter((o) => poStage(o) === k)
+      .sort((a, b) => String(b.contacted || "").localeCompare(String(a.contacted || "")) || a.title.localeCompare(b.title));
+    return `<div class="group-title">${PO_STAGES[k].label} · ${list.length}</div>${rowsHtml(list, row)}`;
+  }).join("");
+}
+
+function openOwner(id) {
+  const o = find("outreach", id);
+  const st = poStage(o);
+  viewModal({ title: o.title, body: o.body, accent: false, edit: { collection: "outreach", item: o },
+    actions: `<button class="btn primary" data-move="${esc(o.id)}">Move to another stage…</button>`,
+    facts: `${chip(PO_STAGES[st].label, PO_STAGES[st].chip)}${o.contact ? chip(o.contact, "slate") : ""}${who(o.owner)}${o.contacted ? chip("Contacted " + fmtDate(o.contacted, { day: "numeric", month: "long" })) : ""}`,
+    extra: o.reach ? `<p class="po-reach">${reachHtml(o.reach)}</p>` : "" });
+}
+
+// Moving an owner to another stage always needs a short account of what happened; it's added to the owner's log.
+function moveDialog(id) {
+  const o = find("outreach", id);
+  if (!o) return;
+  const cur = poStage(o);
+  const keys = Object.keys(PO_STAGES);
+  const next = keys[Math.min(keys.indexOf(cur) + 1, keys.length - 1)];
+  showModal(`
+    <div class="modal-top"></div>
+    <h2 class="modal-title" id="modal-title">Move to another stage</h2>
+    <p class="tick-task">${esc(o.title)} · now ${esc(PO_STAGES[cur].label)}</p>
+    <form class="form" id="move-form" autocomplete="off">
+      <label class="field"><span>New stage <em class="req">*</em></span><select name="stage">${keys.filter((k) => k !== cur).map((k) => `<option value="${k}" ${k === next ? "selected" : ""}>${esc(PO_STAGES[k].label)}</option>`).join("")}</select></label>
+      <label class="field"><span>What happened? <em class="req">*</em></span><textarea name="details" rows="5"></textarea></label>
+      <label class="field half"><span>Date</span><input type="date" name="date" value="${todayIso()}"></label>
+      <p class="form-error" hidden></p>
+      <div class="tick-actions">
+        <button class="btn primary" type="submit">Move</button>
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+      </div>
+    </form>`);
+  const form = document.getElementById("move-form");
+  const err = form.querySelector(".form-error");
+  form.elements.details.focus();
+  form.addEventListener("input", () => { err.hidden = true; });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const stage = form.elements.stage.value;
+    const details = form.elements.details.value.trim().replace(/\s*\n\s*/g, " ");
+    const date = form.elements.date.value || todayIso();
+    if (!details) { err.hidden = false; err.textContent = "Write what happened: who replied, what was said, what's next."; return form.elements.details.focus(); }
+    const btn = form.querySelector("[type=submit]");
+    form.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    btn.textContent = "Saving…";
+    try {
+      const r = await Store.read(o.path);
+      if (!r) throw new Error("That project owner no longer exists.");
+      const fields = { ...r.item, stage };
+      delete fields.id; delete fields.path;
+      const line = `- **${fmtDate(date, { day: "numeric", month: "short", year: "numeric" })}: ${PO_STAGES[stage].label}** (${Store.auth.name || Store.auth.login}). ${details}`;
+      fields.body = [String(fields.body || "").trim(), line].filter(Boolean).join("\n");
+      const text = Store.serialize(fields, FORMS.outreach.order);
+      await Store.write(o.path, text, `outreach: "${fields.title}" → ${stage} (via site, @${Store.auth.login})`, r.sha);
+      applyLocal("outreach", o.path, Store.parse(text, o.path));
+      modal.close();
+      toast(`<strong>Moved to ${esc(PO_STAGES[stage].label)}.</strong> Live for everyone in about a minute.`);
+    } catch (ex) {
+      form.querySelectorAll("button").forEach((b) => (b.disabled = false)); btn.textContent = "Move";
+      err.hidden = false; err.textContent = ex.status === 401 ? "Your token was rejected (expired?). Connect again." : ex.message;
+    }
+  });
 }
 
 // ---------- routing + clicks ----------
@@ -1115,7 +1225,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
   const driveBtn = e.target.closest("[data-drive]");
   if (driveBtn) { e.preventDefault(); return driveAction(driveBtn); }
-  const el = e.target.closest("[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-po],[data-move],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -1128,6 +1238,8 @@ document.addEventListener("click", (e) => {
   }
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.tick) return requireAuth(() => tickDialog(d.tick));
+  if (d.po) return openOwner(d.po);
+  if (d.move) return requireAuth(() => moveDialog(d.move));
   if (d.result) {
     const r = find("results", d.result);
     const t = SITE.tasks.find((x) => x.id === r.task);
@@ -1176,7 +1288,7 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task], [role="button"][data-result]')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[role="button"][data-task], [role="button"][data-result], [role="button"][data-po]')) { e.preventDefault(); e.target.click(); }
 });
 
 // ---------- light / dark ----------

@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).parent
-COLLECTIONS = ["tasks", "events", "results", "datasets", "papers", "notes"]
+COLLECTIONS = ["tasks", "events", "results", "datasets", "papers", "notes", "outreach"]
 
 
 def parse(path):

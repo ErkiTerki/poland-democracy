@@ -644,3 +644,10 @@ dialog.lowered { position: fixed; inset: 0; margin: auto; z-index: 900; visibili
   nav::-webkit-scrollbar { display: none; }
   nav a { flex: none; padding: 6px 11px; }
 }
+
+/* Project owners (outreach) */
+.head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.po-person { font-weight: 500; color: var(--muted); }
+.po-sub { white-space: normal; }
+.po-sub .out-link, .po-reach .out-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.po-reach { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
