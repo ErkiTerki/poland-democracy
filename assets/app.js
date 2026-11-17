@@ -1108,10 +1108,10 @@ const OWNERS_SHEET_URL = "https://docs.google.com/spreadsheets/d/1LmNEm1K09zjgIy
 
 // Outreach stages, in order. Each owner starts as "contacted" and moves on with a written reason.
 const PO_STAGES = {
-  contacted: { label: "Contacted", chip: "" },
-  replied: { label: "Replied", chip: "slate" },
-  call: { label: "Call held", chip: "green" },
-  final: { label: "Our project owner", chip: "red" },
+  contacted: { label: "Contacted", chip: "slate", tone: "slate", hint: "Waiting for a reply", verb: "Got a reply" },
+  replied: { label: "Replied", chip: "amber", tone: "amber", hint: "They answered: set up a call", verb: "Call held" },
+  call: { label: "Call held", chip: "violet", tone: "violet", hint: "We've talked: agree on the project", verb: "They're our owner" },
+  final: { label: "Our project owner", chip: "green", tone: "green", hint: "Signed on as our project owner", verb: "" },
 };
 const poStage = (o) => (PO_STAGES[o.stage] ? o.stage : "contacted");
 
@@ -1131,21 +1131,57 @@ function viewOwners() {
   const all = SITE.outreach || [];
   const add = addBtn("outreach", "+ Add project owner");
   const sheet = `<a class="btn ghost" href="${OWNERS_SHEET_URL}" target="_blank" rel="noopener">Team sheet ↗</a>`;
-  const head = pageHead("Outreach", "Project owners", "", `<span class="head-actions">${sheet}${add}</span>`);
+  const head = pageHead("Outreach", "Project owners", "Everyone we've reached out to, by how far the conversation has got. Use the button on a card to move it to the next stage.", `<span class="head-actions">${sheet}${add}</span>`);
   if (!all.length) return `${head}<div class="empty"><h3>No project owners yet</h3><p>Add each organisation you contact.</p>${add}</div>`;
   const filter = ownerFilter(all);
   const shown = all.filter(filter.keep);
-  const order = Object.keys(PO_STAGES).reverse(); // furthest stage first
-  const row = (o) => `<div class="row" data-po="${esc(o.id)}" role="button" tabindex="0">
-      <div><div class="row-title">${esc(o.title)}${o.contact ? `<span class="po-person"> · ${esc(o.contact)}</span>` : ""}</div>
-        <div class="row-sub po-sub">${o.reach ? reachHtml(o.reach) : ""}${o.contacted ? `${o.reach ? " · " : ""}Contacted ${fmtDate(o.contacted, { day: "numeric", month: "short" })}` : ""}</div></div>
-      <div class="row-right">${who(o.owner)}</div>
+  const keys = Object.keys(PO_STAGES);
+  const count = (k) => shown.filter((o) => poStage(o) === k).length;
+
+  // Pipeline: the four stages in order, with how many owners sit in each.
+  const pipe = `<div class="po-pipe">${keys.map((k, n) => `
+    <a class="po-step tone-${PO_STAGES[k].tone}${count(k) ? "" : " is-zero"}" href="#g-po-${k}">
+      <span class="po-step-n">${count(k)}</span>
+      <span class="po-step-label">${n + 1}. ${esc(PO_STAGES[k].label)}</span>
+      <span class="po-step-hint">${esc(PO_STAGES[k].hint)}</span>
+    </a>`).join('<span class="po-arrow" aria-hidden="true">→</span>')}</div>`;
+
+  const today = todayIso();
+  const card = (o) => {
+    const k = poStage(o);
+    const next = keys[keys.indexOf(k) + 1];
+    const last = poSplit(o.body).log.slice(-1)[0];
+    const since = o.contacted ? daysBetween(o.contacted, today) : null;
+    const status = last
+      ? `<p class="po-last"><b>${esc(last.date.replace(/ \d{4}$/, ""))}:</b> ${esc(last.text.length > 140 ? last.text.slice(0, 138) + "…" : last.text)}</p>`
+      : since > 0 ? `<p class="po-last muted">No reply yet · ${since} day${since === 1 ? "" : "s"}</p>` : "";
+    return `<div class="card po-card tone-${PO_STAGES[k].tone}" data-po="${esc(o.id)}" role="button" tabindex="0">
+      <div class="po-card-top">
+        <div class="po-name">${esc(o.title)}</div>${who(o.owner)}
+      </div>
+      ${o.contact ? `<div class="po-contact">${esc(o.contact)}</div>` : ""}
+      <div class="po-reach-line">${o.reach ? reachHtml(o.reach) : ""}</div>
+      ${status}
+      <div class="po-card-foot">
+        <span class="po-date">${o.contacted ? "Contacted " + fmtDate(o.contacted, { day: "numeric", month: "short" }) : ""}</span>
+        ${next ? `<button class="po-next tone-${PO_STAGES[next].tone}" type="button" data-move="${esc(o.id)}" data-stage="${next}">${esc(PO_STAGES[k].verb)} →</button>` : '<span class="po-done">✓ Project owner</span>'}
+      </div>
     </div>`;
-  return head + filter.html + order.filter((k) => shown.some((o) => poStage(o) === k)).map((k) => {
+  };
+  // Furthest stage first; empty stages are left out (the pipeline above still shows them, at 0).
+  const lanes = keys.slice().reverse().filter((k) => count(k)).map((k) => {
     const list = shown.filter((o) => poStage(o) === k)
       .sort((a, b) => String(b.contacted || "").localeCompare(String(a.contacted || "")) || a.title.localeCompare(b.title));
-    return `<div class="group-title">${PO_STAGES[k].label} · ${list.length}</div>${rowsHtml(list, row)}`;
+    return `<section class="round po-lane tone-${PO_STAGES[k].tone}" id="g-po-${k}">
+      <header class="round-head">
+        <div><div class="round-label"><span class="po-dot"></span>Stage ${keys.indexOf(k) + 1} of ${keys.length}</div>
+          <h2 class="round-date">${esc(PO_STAGES[k].label)}</h2></div>
+        <div class="round-meta"><span>${esc(PO_STAGES[k].hint)}</span>${chip(String(list.length), PO_STAGES[k].chip)}</div>
+      </header>
+      ${list.length ? `<div class="round-grid">${list.map(card).join("")}</div>` : '<p class="po-empty">Nobody here yet.</p>'}
+    </section>`;
   }).join("");
+  return head + filter.html + pipe + `<div class="rounds">${lanes}</div>`;
 }
 
 function openOwner(id) {
@@ -1234,12 +1270,12 @@ function logEditDialog(id, i) {
 }
 
 // Moving an owner to another stage always needs a short account of what happened; it's added to the owner's log.
-function moveDialog(id) {
+function moveDialog(id, preset) {
   const o = find("outreach", id);
   if (!o) return;
   const cur = poStage(o);
   const keys = Object.keys(PO_STAGES);
-  const next = keys[Math.min(keys.indexOf(cur) + 1, keys.length - 1)];
+  const next = PO_STAGES[preset] && preset !== cur ? preset : keys[Math.min(keys.indexOf(cur) + 1, keys.length - 1)];
   showModal(`
     <div class="modal-top"></div>
     <h2 class="modal-title" id="modal-title">Move to another stage</h2>
@@ -1339,7 +1375,7 @@ document.addEventListener("click", (e) => {
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.tick) return requireAuth(() => tickDialog(d.tick));
   if (d.po) return openOwner(d.po);
-  if (d.move) return requireAuth(() => moveDialog(d.move));
+  if (d.move) return requireAuth(() => moveDialog(d.move, d.stage));
   if (d.logedit) return requireAuth(() => logEditDialog(d.logedit, +d.i));
   if (d.result) {
     const r = find("results", d.result);
