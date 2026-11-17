@@ -200,7 +200,7 @@ const FORMS = {
     ],
   },
   events: {
-    noun: "event", dir: "content/events", order: ["title", "date", "time", "type", "location", "repeat", "until"],
+    noun: "event", dir: "content/events", order: ["title", "date", "time", "type", "location", "repeat", "until", "skip"],
     base: (f) => `${f.date}-${slug(f.title)}`,
     fields: [
       { k: "title", label: "Event", type: "text", req: true, ph: "e.g. Mentor check-in" },
@@ -459,7 +459,7 @@ async function openForm(collection, id, defaults = {}) {
       <datalist id="owners">${owners.map((o) => `<option value="${esc(o)}">`).join("")}</datalist>
       <p class="form-error" hidden></p>
       <div class="modal-foot">
-        ${!isNew && collection !== "overview" ? '<button type="button" class="btn danger" data-del>Delete</button>' : "<span></span>"}
+        ${!isNew && collection !== "overview" ? `<button type="button" class="btn danger" data-del>${collection === "events" && current?.repeat ? "Delete all dates" : "Delete"}</button>` : "<span></span>"}
         <span class="foot-right"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary" type="submit">${isNew ? "Add " + spec.noun : "Save changes"}</button></span>
       </div>
     </form>`);
@@ -635,8 +635,9 @@ function occurrences(fromIso, toIso) {
     if (!ev.date) continue;
     if (ev.repeat === "weekly") {
       const until = ev.until || toIso;
+      const skip = new Set(String(ev.skip || "").split(/[\s,]+/).filter(Boolean)); // single dates removed from the series
       for (let d = parseDate(ev.date); iso(d) <= until && iso(d) <= toIso; d.setDate(d.getDate() + 7)) {
-        if (iso(d) >= fromIso) out.push({ ...ev, on: iso(d) });
+        if (iso(d) >= fromIso && !skip.has(iso(d))) out.push({ ...ev, on: iso(d) });
       }
     } else if (ev.date >= fromIso && ev.date <= toIso) {
       out.push({ ...ev, on: ev.date });
@@ -653,7 +654,31 @@ function openEvent(id, on) {
     title: ev.title,
     facts: `${chip(t.label, t.chip)}${chip(fmtDate(on, { weekday: "long", day: "numeric", month: "long", year: "numeric" }))}${chip(ev.time)}${chip(ev.location)}${ev.repeat === "weekly" ? chip("Every week" + (ev.until ? " until " + fmtDate(ev.until, { day: "numeric", month: "short" }) : "")) : ""}`,
     body: ev.body, accent: ev.type === "board", edit: { collection: "events", item: ev },
+    actions: ev.repeat === "weekly" ? `<button class="btn danger" data-skip="${esc(ev.id)}" data-on="${esc(on)}">Delete only ${esc(fmtDate(on, { day: "numeric", month: "short" }))}</button>` : "",
   });
+}
+
+// Remove one date from a weekly event: the date goes into the event's `skip` list; the rest of the series stays.
+async function skipOccurrence(id, on, btn) {
+  const ev = find("events", id);
+  if (!ev) return;
+  if (btn) { btn.disabled = true; btn.textContent = "Deleting…"; }
+  try {
+    const r = await Store.read(ev.path);
+    if (!r) throw new Error("That event no longer exists.");
+    const fields = { ...r.item }; delete fields.id; delete fields.path;
+    const dates = new Set(String(fields.skip || "").split(/[\s,]+/).filter(Boolean));
+    dates.add(on);
+    fields.skip = [...dates].sort().join(", ");
+    const text = Store.serialize(fields, FORMS.events.order);
+    await Store.write(ev.path, text, `events: skip ${on} of "${fields.title}" (via site, @${Store.auth.login})`, r.sha);
+    applyLocal("events", ev.path, Store.parse(text, ev.path));
+    modal.close();
+    toast(`<strong>Deleted ${esc(fmtDate(on, { weekday: "long", day: "numeric", month: "long" }))}.</strong> The other weeks stay. Live for everyone in about a minute.`);
+  } catch (ex) {
+    if (btn) { btn.disabled = false; btn.textContent = "Delete only this date"; }
+    toast(esc(ex.status === 401 ? "Your token was rejected (expired?). Connect again." : ex.message), "err");
+  }
 }
 
 function calendarHtml() {
@@ -1361,7 +1386,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("a.out-link")) return; // a link inside a card opens the link, not the card
   const driveBtn = e.target.closest("[data-drive]");
   if (driveBtn) { e.preventDefault(); return driveAction(driveBtn); }
-  const el = e.target.closest("[data-po],[data-move],[data-logedit],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
+  const el = e.target.closest("[data-skip],[data-po],[data-move],[data-logedit],[data-result],[data-tick],[data-ev],[data-add],[data-edit],[data-task],[data-paper],[data-note],[data-owner],[data-author],[data-cal],[data-status],[data-action],[data-copy],[data-connect],#auth-btn");
   if (!el) return;
   const d = el.dataset;
   if (el.id === "auth-btn" || d.connect !== undefined) return connectModal();
@@ -1375,6 +1400,7 @@ document.addEventListener("click", (e) => {
   if (d.action === "disconnect") { Store.disconnect(); renderAuth(); modal.close(); return toast("Disconnected."); }
   if (d.tick) return requireAuth(() => tickDialog(d.tick));
   if (d.po) return openOwner(d.po);
+  if (d.skip) return requireAuth(() => skipOccurrence(d.skip, d.on, el));
   if (d.move) return requireAuth(() => moveDialog(d.move, d.stage));
   if (d.logedit) return requireAuth(() => logEditDialog(d.logedit, +d.i));
   if (d.result) {
