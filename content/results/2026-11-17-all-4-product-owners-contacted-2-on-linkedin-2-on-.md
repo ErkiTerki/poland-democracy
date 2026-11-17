@@ -5,4 +5,8 @@ owner: Francesco
 date: 2026-11-17
 link: https://docs.google.com/document/d/1SmWHnhKsIy-y7yZOVO9fCzsAiiBw6iCueaZqBp6dO6k/edit?usp=sharing
 ---
-More details on the Google Document
+More details on the Google Document: 
+- Demagog
+- People vs Big Tech
+- Reset Tech
+- De Facto
