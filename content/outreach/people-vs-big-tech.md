@@ -6,4 +6,4 @@ contacted: 2026-11-17
 owner: Francesco
 stage: contacted
 ---
-Wanted to extend Global Witness's Romania/Germany/Poland approach to France. Contact form: https://peoplevsbig.tech/contact-us/
+LinkedIn connection request with a note. Wanted to extend Global Witness's Romania/Germany/Poland approach to France.

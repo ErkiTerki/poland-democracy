@@ -1,6 +1,6 @@
 ---
 title: Demagog
-contact: Kinga Klich
+contact: Małgorzata Kilian
 reach: Email
 contacted: 2026-11-17
 owner: Francesco

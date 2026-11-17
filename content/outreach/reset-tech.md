@@ -6,4 +6,4 @@ contacted: 2026-11-17
 owner: Francesco
 stage: contacted
 ---
-General address: hello@reset.tech
+LinkedIn connection request with a note. General address: hello@reset.tech

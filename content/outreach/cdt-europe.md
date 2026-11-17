@@ -1,6 +1,6 @@
 ---
 title: CDT Europe
-reach: Official email
+reach: eu@cdt.org
 contacted: 2026-11-16
 owner: Viola
 stage: contacted
