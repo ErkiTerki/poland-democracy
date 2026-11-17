@@ -1,5 +1,5 @@
 ---
-title: Come up with a plan for our project Methodology
+title: Come up with a plan for the Methodology of our project
 status: todo
 owner: Everyone
 due: 2026-11-18
