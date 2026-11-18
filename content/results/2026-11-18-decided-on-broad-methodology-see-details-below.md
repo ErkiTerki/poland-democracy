@@ -3,6 +3,7 @@ title: Decided on broad methodology, see details below.
 task: come-up-with-a-plan-for-our-project-methodology
 owner: Erik
 date: 2026-11-18
+link: https://drive.google.com/file/d/1_X3DTeXVtPhh7MgMcMXyLqQBjYtvfAJp/view?usp=share_link
 ---
 The methodology is divided into two parts:
 
