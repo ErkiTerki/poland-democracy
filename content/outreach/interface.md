@@ -1,6 +1,6 @@
 ---
 title: Interface
-contact: Anna Wohlfarth (executive director)
+contact: info@interface-eu.org
 reach: Email
 contacted: 2026-11-16
 owner: Filipa
