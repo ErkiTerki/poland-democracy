@@ -1,7 +1,7 @@
 ---
 title: Present our Github in the Mock Board 1!!!
 status: todo
-owner: Francesco
+owner: Everyone
 due: 2026-11-27
 ---
 
